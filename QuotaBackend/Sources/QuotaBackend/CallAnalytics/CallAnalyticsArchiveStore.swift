@@ -51,6 +51,8 @@ final class CallAnalyticsArchiveStore {
         load().fullHistoryImportedAt != nil
     }
 
+    var allDays: [String: CallAnalyticsDayBucket] { load().days }
+
     /// 冻结合并：past(<today) 仅在缺失时首次写入；today 每次覆盖重算；已冻结的 past 保持不动。
     /// 返回合并后的全部归档日，供引擎按请求范围裁剪展示。
     func freeze(

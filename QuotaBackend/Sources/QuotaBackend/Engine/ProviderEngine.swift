@@ -159,7 +159,7 @@ public actor ProviderEngine {
 
     private static func timeoutSeconds(for provider: any ProviderFetcher) -> Double {
         switch provider.id {
-        case "codex-cost": return codexCostTimeoutSeconds
+        case "codex-cost", "claude": return codexCostTimeoutSeconds
         case "droid": return droidTimeoutSeconds
         case "opencode": return openCodeTimeoutSeconds
         default: return timeoutSeconds
@@ -247,7 +247,7 @@ public actor ProviderEngine {
         var usage = try await withTimeout(seconds: Self.timeoutSeconds(for: credentialProvider)) {
             try await credentialProvider.fetchUsage(with: credential)
         }
-        if usage.accountEmail?.nilIfBlank == nil { usage.accountEmail = label }
+        if credentialProvider.id != "claude-subscription", usage.accountEmail?.nilIfBlank == nil { usage.accountEmail = label }
         if usage.accountName?.nilIfBlank == nil { usage.accountName = label }
         if usage.usageAccountId?.nilIfBlank == nil { usage.usageAccountId = fallbackAccountId }
         usage.extra["credentialId"] = AnyCodable(credential.id)

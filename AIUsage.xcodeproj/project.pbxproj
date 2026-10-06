@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        C1CS00010000000000000001 /* ClaudeSubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1CS00010000000000000002 /* ClaudeSubscriptionManager.swift */; };
+        C1CS00020000000000000001 /* ClaudeSubscriptionConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1CS00020000000000000002 /* ClaudeSubscriptionConnectionView.swift */; };
+        C1CS00030000000000000001 /* ClaudeSubscriptionAccountActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1CS00030000000000000002 /* ClaudeSubscriptionAccountActions.swift */; };
 		16107C5456181DB224F92CB4 /* ProxyViewModel+UsageArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E3E7768D2A94C7B19550E40 /* ProxyViewModel+UsageArchive.swift */; };
 		1E871734213E6EFD191F8398 /* StatsDataAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D613C7828C6DACECB0171A7 /* StatsDataAdapter.swift */; };
 		1ED5CE49B33A74A1DF312F2A /* ScienceSandbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB3625A62FC18DD31DE20CB9 /* ScienceSandbox.swift */; };
@@ -53,6 +56,7 @@
 		5EFPA0222F91000200A15674 /* ProviderManagedImportStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EFPA0212F91000200A15674 /* ProviderManagedImportStore.swift */; };
 		5EFPA0322F91000300A15674 /* CLIExecutableResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EFPA0312F91000300A15674 /* CLIExecutableResolver.swift */; };
 		5EFPA0422F91000400A15674 /* CodexLoginCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EFPA0412F91000400A15674 /* CodexLoginCoordinator.swift */; };
+		C1CS00040000000000000001 /* ClaudeLoginCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1CS00040000000000000002 /* ClaudeLoginCoordinator.swift */; };
 		5EFPA0522F91000500A15674 /* GeminiLoginCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EFPA0512F91000500A15674 /* GeminiLoginCoordinator.swift */; };
 		5EFPA0562F91000550A15674 /* AntigravityLoginCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EFPA0552F91000550A15674 /* AntigravityLoginCoordinator.swift */; };
 		5EFPA0582F91000580A15674 /* CopilotLoginCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EFPA0572F91000580A15674 /* CopilotLoginCoordinator.swift */; };
@@ -228,6 +232,9 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        C1CS00010000000000000002 /* ClaudeSubscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSubscriptionManager.swift; sourceTree = "<group>"; };
+        C1CS00020000000000000002 /* ClaudeSubscriptionConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSubscriptionConnectionView.swift; sourceTree = "<group>"; };
+        C1CS00030000000000000002 /* ClaudeSubscriptionAccountActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSubscriptionAccountActions.swift; sourceTree = "<group>"; };
 		00A12FE22E8E59EF630BA439 /* UsageTrack.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UsageTrack.swift; sourceTree = "<group>"; };
 		1C8773DDEF6B585EC2A61FE2 /* ScienceRealAdopt.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScienceRealAdopt.swift; sourceTree = "<group>"; };
 		AB01SCAP02F92000000A15674 /* ScienceAuthProxy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScienceAuthProxy.swift; sourceTree = "<group>"; };
@@ -279,6 +286,7 @@
 		5EFPA0212F91000200A15674 /* ProviderManagedImportStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderManagedImportStore.swift; sourceTree = "<group>"; };
 		5EFPA0312F91000300A15674 /* CLIExecutableResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIExecutableResolver.swift; sourceTree = "<group>"; };
 		5EFPA0412F91000400A15674 /* CodexLoginCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexLoginCoordinator.swift; sourceTree = "<group>"; };
+		C1CS00040000000000000002 /* ClaudeLoginCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLoginCoordinator.swift; sourceTree = "<group>"; };
 		5EFPA0512F91000500A15674 /* GeminiLoginCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiLoginCoordinator.swift; sourceTree = "<group>"; };
 		5EFPA0552F91000550A15674 /* AntigravityLoginCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityLoginCoordinator.swift; sourceTree = "<group>"; };
 		5EFPA0572F91000580A15674 /* CopilotLoginCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CopilotLoginCoordinator.swift; sourceTree = "<group>"; };
@@ -567,6 +575,7 @@
 		5EFAD7452F87AC7100A15674 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+                C1CS00010000000000000002 /* ClaudeSubscriptionManager.swift */,
 				C1CPA0022FD0002000B26789 /* CLIProxyPaths.swift */,
 				C1CPA0042FD0003000B26789 /* CLIProxyReleaseClient.swift */,
 				C1CPA0062FD0004000B26789 /* CLIProxyBinaryStore.swift */,
@@ -601,6 +610,8 @@
 		5EFAD74C2F87AC7100A15674 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+                C1CS00020000000000000002 /* ClaudeSubscriptionConnectionView.swift */,
+                C1CS00030000000000000002 /* ClaudeSubscriptionAccountActions.swift */,
 				C1CPA00A2FD0006000B26789 /* SubscriptionGatewayView.swift */,
 				A1F1A5C02F99008000A15674 /* GatewayRuntimeControl.swift */,
 				C1CPA0182FD000D000B26789 /* SubscriptionGatewayComponents.swift */,
@@ -742,6 +753,7 @@
 				5EFPA0212F91000200A15674 /* ProviderManagedImportStore.swift */,
 				5EFPA0312F91000300A15674 /* CLIExecutableResolver.swift */,
 				5EFPA0412F91000400A15674 /* CodexLoginCoordinator.swift */,
+				C1CS00040000000000000002 /* ClaudeLoginCoordinator.swift */,
 				A2B3C4F22F96001000A15699 /* LoginPhase.swift */,
 				5EFPA0512F91000500A15674 /* GeminiLoginCoordinator.swift */,
 				5EFPA0552F91000550A15674 /* AntigravityLoginCoordinator.swift */,
@@ -875,6 +887,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+                C1CS00010000000000000001 /* ClaudeSubscriptionManager.swift in Sources */,
+                C1CS00020000000000000001 /* ClaudeSubscriptionConnectionView.swift in Sources */,
+                C1CS00030000000000000001 /* ClaudeSubscriptionAccountActions.swift in Sources */,
 				C1CPA0012FD0001000B26789 /* CLIProxyGatewayModels.swift in Sources */,
 				C1CPA0032FD0002000B26789 /* CLIProxyPaths.swift in Sources */,
 				C1CPA0052FD0003000B26789 /* CLIProxyReleaseClient.swift in Sources */,
@@ -1031,6 +1046,7 @@
 				5EFPA0222F91000200A15674 /* ProviderManagedImportStore.swift in Sources */,
 				5EFPA0322F91000300A15674 /* CLIExecutableResolver.swift in Sources */,
 				5EFPA0422F91000400A15674 /* CodexLoginCoordinator.swift in Sources */,
+				C1CS00040000000000000001 /* ClaudeLoginCoordinator.swift in Sources */,
 				A2B3C4F32F96001000A15699 /* LoginPhase.swift in Sources */,
 				5EFPA0522F91000500A15674 /* GeminiLoginCoordinator.swift in Sources */,
 				5EFPA0562F91000550A15674 /* AntigravityLoginCoordinator.swift in Sources */,

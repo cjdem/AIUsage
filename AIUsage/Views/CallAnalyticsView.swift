@@ -576,7 +576,8 @@ struct CallAnalyticsView: View {
             ForEach(store.snapshot.sources.filter { !hiddenSources.contains($0.source) }, id: \.source) { status in
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(status.errorCode != nil ? Color.red : (status.available ? Color.green : Color.secondary.opacity(0.4)))
+                        .fill(status.errorCode == "legacy_identity_unknown" ? Color.orange :
+                            (status.errorCode != nil ? Color.red : (status.available ? Color.green : Color.secondary.opacity(0.4))))
                         .frame(width: 7, height: 7)
                     Text(status.source.displayName).font(.caption2.weight(.medium))
                     Text(sourceDetail(status)).font(.caption2).foregroundStyle(.secondary)
@@ -613,6 +614,9 @@ struct CallAnalyticsView: View {
 
     /// 单行简述：绿点正常时显示「扫 N 个会话 · M 次调用」。
     private func sourceDetail(_ status: CallSourceStatus) -> String {
+        if status.errorCode == "legacy_identity_unknown" {
+            return L("Legacy records unverified", "旧记录待确认")
+        }
         if let code = status.errorCode {
             return L("error: \(code)", "采集失败: \(code)", key: "calls.source.error")
         }
@@ -626,6 +630,10 @@ struct CallAnalyticsView: View {
 
     /// 悬停完整说明：解释「会话文件」与「调用次数」分别是什么。
     private func sourceHelp(_ status: CallSourceStatus) -> String {
+        if status.errorCode == "legacy_identity_unknown" {
+            return L("Some legacy counts have no event IDs. Restored history is reconciled conservatively; new calls are counted separately.",
+                     "部分旧计数缺少事件 ID。恢复日志按保守口径核对，新调用单独计入。")
+        }
         if let code = status.errorCode {
             return L("Collection failed (\(code)).",
                      "采集失败（\(code)）。", key: "calls.source.help.error")

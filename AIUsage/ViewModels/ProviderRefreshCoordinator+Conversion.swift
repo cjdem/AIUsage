@@ -315,6 +315,24 @@ extension ProviderRefreshCoordinator {
             "Proxy usage ledger": "代理用量账本",
             "Proxy + subscription ledger": "代理 + 非代理账本",
             "Proxy + non-proxy ledger": "代理 + 非代理账本",
+            "Non-proxy tokens • Cost not tracked": "非代理 Token · 不统计费用",
+            "Claude Subscription": "Claude 订阅",
+            "Reconnect needed": "需要重新连接",
+            "Quota sync was removed from Claude Code settings.": "Claude Code 设置中的额度同步已被移除。",
+            "No subscription data": "暂无订阅额度",
+            "Claude Code is using an API proxy, which doesn't report subscription limits.": "Claude Code 正在使用 API 代理，代理会话不返回订阅额度。",
+            "Waiting for first sync": "等待首次同步",
+            "Limits appear after your next Claude Code message.": "下一条 Claude Code 消息后显示额度。",
+            "Limits reset": "额度已重置",
+            "Updates after your next Claude Code message.": "下一条 Claude Code 消息后更新。",
+            "Last synced": "最近同步",
+            "Synced": "已同步",
+            "Organization": "组织",
+            "Quota syncs each time Claude Code responds. Usage on claude.ai or other devices shows up after your next Code message.":
+                "Claude Code 每次回复都会同步额度；claude.ai 或其他设备上的用量会在下一条 Code 消息后体现。",
+            "Claude Code local tokens; proxy costs only. Not subscription quota.": "本地 Token 与代理费用，不代表订阅额度。",
+            "Unverified Tokens": "待确认 Token",
+            "Excluded from totals": "未计入合计",
             "Gemini CLI OAuth": "Gemini CLI OAuth",
             "Kiro IDE session": "Kiro IDE 会话",
             "Stored credential": "已存凭证",
@@ -447,6 +465,7 @@ extension ProviderRefreshCoordinator {
         result = replacingRegex(#"^(.+) used$"#, in: result, template: "已用 $1")
         result = replacingRegex(#"^(\d[\d,]*) total$"#, in: result, template: "总量 $1")
         result = replacingRegex(#"^(\d[\d,]*) duplicate rows removed$"#, in: result, template: "已去重 $1 条")
+        result = replacingRegex(#"^(\d[\d,]*) proxy responses excluded$"#, in: result, template: "已排除 $1 条代理记录")
         result = replacingRegex(#"^(\d[\d,]*) tokens$"#, in: result, template: "$1 个 tokens")
         result = replacingRegex(#"^(\d[\d,]*) tokens this month$"#, in: result, template: "本月 $1 tokens")
         result = replacingRegex(#"^(\d[\d,]*) tokens observed this week$"#, in: result, template: "本周记录 $1 tokens")
@@ -481,6 +500,7 @@ extension ProviderRefreshCoordinator {
         result = replacingRegex(#"^Resets (.+) at (.+)$"#, in: result, template: "重置于 $1 $2")
         result = replacingRegex(#"^(.+) bonus credits remain$"#, in: result, template: "剩余 $1 奖励额度")
         result = replacingRegex(#"^Week (.+) • Today (.+)$"#, in: result, template: "本周 $1 • 今日 $2")
+        result = replacingRegex(#"^Proxy costs • Week (.+) • Today (.+)$"#, in: result, template: "代理费用 · 本周 $1 · 今日 $2")
         return result
     }
 

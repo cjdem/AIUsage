@@ -16,8 +16,7 @@ struct CallAnalyticsInventory {
     /// 它们的调用仍由各事件源正常统计，不影响排行与「已用」判定。
     /// 目录名即 skill 名（与日志中 input.skill / state.input.name / SKILL.md 路径对应）。
     private var skillRoots: [(source: CallSourceKind, path: String)] {
-        [
-            (.claude, "\(homeDirectory)/.claude/skills"),
+        ClaudeLogDirectoryResolver(homeDirectory: homeDirectory, environment: environment).configDirectories.map { (.claude, "\($0)/skills") } + [
             (.codex, "\(homeDirectory)/.codex/skills"),
             (.opencode, "\(homeDirectory)/.config/opencode/skills")
         ]
@@ -27,7 +26,7 @@ struct CallAnalyticsInventory {
     /// Codex 用 TOML（[mcp_servers.NAME]）。OpenCode 由统一 resolver 单独处理，
     /// 按 OpenCode 的全局/附加层合并后扫描。
     private var mcpConfigFiles: [(source: CallSourceKind, path: String, format: MCPConfigFormat)] {
-        [
+        ClaudeLogDirectoryResolver(homeDirectory: homeDirectory, environment: environment).configDirectories.map { (.claude, "\($0)/.claude.json", .json) } + [
             (.claude, "\(homeDirectory)/.claude.json", .json),
             (.codex, "\(homeDirectory)/.codex/config.toml", .codexTOML)
         ]

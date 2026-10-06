@@ -133,7 +133,11 @@ struct ProviderAccountEntry: Identifiable {
     }
 
     var isConnected: Bool {
-        liveProvider != nil
+        if providerId == "claude-subscription" {
+            guard let liveProvider else { return false }
+            return !liveProvider.needsCredentialConnection && liveProvider.sourceFilePath != nil && liveProvider.status != .error
+        }
+        return liveProvider != nil
     }
 
     var canDelete: Bool {

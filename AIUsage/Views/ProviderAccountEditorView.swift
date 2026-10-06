@@ -92,6 +92,14 @@ struct ProviderAccountEditorView: View {
     }
 
     var body: some View {
+        if providerId == "claude-subscription" {
+            ClaudeSubscriptionConnectionView()
+        } else {
+            existingEditor
+        }
+    }
+
+    private var existingEditor: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 // Header

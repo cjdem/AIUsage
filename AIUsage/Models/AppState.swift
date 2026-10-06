@@ -26,6 +26,7 @@ class AppState: ObservableObject {
 
     private static let providerCatalogItems: [ProviderCatalogItem] = [
         ProviderCatalogItem(id: "codex", titleEn: "Codex", titleZh: "Codex", summaryEn: "Official OpenAI subscription windows and quotas", summaryZh: "OpenAI 官方订阅窗口与配额", channel: "cli", kind: .official),
+        ProviderCatalogItem(id: "claude-subscription", titleEn: "Claude Subscription", titleZh: "Claude 订阅", summaryEn: "Code subscription quota", summaryZh: "Code 订阅额度", channel: "cli", kind: .official),
         ProviderCatalogItem(id: "copilot", titleEn: "Copilot", titleZh: "Copilot", summaryEn: "GitHub Copilot account entitlements and premium lanes", summaryZh: "GitHub Copilot 账号权益与高级通道", channel: "ide", kind: .official),
         ProviderCatalogItem(id: "cursor", titleEn: "Cursor", titleZh: "Cursor", summaryEn: "Cursor membership allowances and plan usage", summaryZh: "Cursor 会员额度与计划用量", channel: "ide", kind: .official),
         ProviderCatalogItem(id: "antigravity", titleEn: "Antigravity", titleZh: "Antigravity", summaryEn: "Per-model IDE subscription quotas across many model families", summaryZh: "按模型拆分的 IDE 订阅配额", channel: "ide", kind: .official),
@@ -35,7 +36,7 @@ class AppState: ObservableObject {
         ProviderCatalogItem(id: "kimi", titleEn: "Kimi Code", titleZh: "Kimi Code", summaryEn: "Kimi Code subscription weekly usage and rolling rate-limit windows", summaryZh: "Kimi Code 订阅的本周用量与滚动频控窗口", channel: "cli", kind: .official),
         ProviderCatalogItem(id: "minimax", titleEn: "MiniMax Token Plan", titleZh: "MiniMax Token Plan", summaryEn: "MiniMax Token Plan 5-hour rolling and weekly subscription credits", summaryZh: "MiniMax Token Plan 5 小时滚动与周窗口的订阅额度", channel: "cli", kind: .official),
         ProviderCatalogItem(id: "droid", titleEn: "Droid", titleZh: "Droid", summaryEn: "Token-heavy usage pools and remaining allowances", summaryZh: "以 token 为主的额度池与剩余额度", channel: "cli", kind: .official),
-        ProviderCatalogItem(id: "claude", titleEn: "Claude", titleZh: "Claude", summaryEn: "Code, Desktop and Science usage recorded by Claude Gateway", summaryZh: "Claude Gateway 记录的 Code、Desktop 与 Science 用量", channel: "local", kind: .costTracking),
+        ProviderCatalogItem(id: "claude", titleEn: "Claude", titleZh: "Claude", summaryEn: "Proxy costs and Claude Code non-proxy tokens", summaryZh: "Claude 代理费用与 Code 非代理 Token", channel: "local", kind: .costTracking),
         ProviderCatalogItem(id: "codex-cost", titleEn: "Codex", titleZh: "Codex", summaryEn: "Proxy cost ledger plus non-proxy Codex token usage", summaryZh: "Codex 代理费用账本与非代理 Token 用量", channel: "local", kind: .costTracking),
         ProviderCatalogItem(id: "opencode", titleEn: "OpenCode", titleZh: "OpenCode", summaryEn: "Local token and cost ledger from OpenCode sessions", summaryZh: "基于 OpenCode 本地会话的 Token 与费用账本", channel: "local", kind: .costTracking)
     ]

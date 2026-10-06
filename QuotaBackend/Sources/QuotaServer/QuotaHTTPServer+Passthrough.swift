@@ -219,6 +219,7 @@ extension QuotaHTTPServer {
                 errorType: errorType,
                 errorMessage: errorMessage,
                 statusCode: !isSuccess ? statusCode : nil,
+                responseMessageId: json?["id"] as? String,
                 clientSurface: clientSurface
             )
 
@@ -285,6 +286,7 @@ extension QuotaHTTPServer {
             var totalOutputTokens = 0
             var cacheCreationTokens = 0
             var cacheReadTokens = 0
+            var responseMessageId: String?
             // 兜底估算：当上游漏发 usage（Kimi Coding/Anthropic-compat 在中断或不带缓存的
             // 短回合里很常见）时，用「请求体字符数」估 input、用「累计 delta 字符数」估 output，
             // 避免明细行恒显 0/0。估算用 chars/4 的传统启发式，仅当上游真实数据缺失时才介入。
@@ -302,12 +304,16 @@ extension QuotaHTTPServer {
                 // 廉价子串预过滤：只有可能携带 usage 或参与 output 兜底估算
                 // （content_block_delta）的事件才值得做 JSON 解析；
                 // ping / content_block_start / message_stop 等高频帧直接跳过。
-                guard line.contains("\"usage\"") || line.contains("content_block_delta") else {
+                guard line.contains("\"usage\"") || line.contains("content_block_delta") || line.contains("message_start") else {
                     return
                 }
                 let jsonStr = String(line[jsonStart...])
                 guard let eventData = try? JSONSerialization.jsonObject(with: Data(jsonStr.utf8)) as? [String: Any] else {
                     return
+                }
+                if eventData["type"] as? String == "message_start",
+                   let message = eventData["message"] as? [String: Any] {
+                    responseMessageId = message["id"] as? String
                 }
 
                 // 累计输出 delta（content_block_delta.delta.{text|partial_json|thinking}），
@@ -389,6 +395,7 @@ extension QuotaHTTPServer {
                 errorType: !isSuccess ? passthroughErrorType(forHTTPStatus: statusCode) : nil,
                 errorMessage: !isSuccess ? "HTTP \(statusCode)" : nil,
                 statusCode: !isSuccess ? statusCode : nil,
+                responseMessageId: responseMessageId,
                 clientSurface: clientSurface
             )
 
@@ -464,6 +471,7 @@ extension QuotaHTTPServer {
         errorType: String? = nil,
         errorMessage: String? = nil,
         statusCode: Int? = nil,
+        responseMessageId: String? = nil,
         clientSurface: ClaudeClientSurface = .unknown
     ) {
         let inputTokens = usage["input_tokens"] as? Int ?? 0
@@ -488,6 +496,7 @@ extension QuotaHTTPServer {
         if let errorType { log["error_type"] = errorType }
         if let errorMessage { log["error"] = errorMessage }
         if let statusCode { log["status_code"] = statusCode }
+        if let responseMessageId { log["response_message_id"] = responseMessageId }
         // 全局统一代理：一个进程随激活节点轮转服务多个节点，按 node_id 把日志归因到当前节点。
         if let nodeId = activeNodeId, !nodeId.isEmpty { log["node_id"] = nodeId }
 

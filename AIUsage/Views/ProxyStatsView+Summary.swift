@@ -15,7 +15,7 @@ extension ProxyStatsView {
                 if showsCost {
                     summaryCell(
                         icon: "dollarsign.circle.fill",
-                        title: "\(L("Cost", "费用")) · \(period.label)",
+                        title: "\(sourceFamily == .claude ? L("Proxy cost", "代理费用") : L("Cost", "费用")) · \(period.label)",
                         value: formatCurrency(overall.cost),
                         tint: .orange
                     )

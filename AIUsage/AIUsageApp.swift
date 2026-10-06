@@ -260,6 +260,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             AppState.shared.refreshAllProviders()
+            // Claude Code 每次回传额度都会写快照；监听后卡片即时更新，不等全局刷新周期。
+            ClaudeSubscriptionManager.shared.startWatching()
         }
     }
 

@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIUsage · Claude 订阅监控设计</title>
+  <style>
+    :root{color-scheme:light;--page:#f0f3f7;--sidebar:#e6ecf3;--card:#fafcfe;--elevated:#fff;--row:#ebf0f6;--line:#d9e1eb;--ink:#233147;--muted:#58687d;--blue:#0f5bae;--green:#18704a;--orange:#8b4d0d;--red:#bd343b;--brand:#d97757;--track:#e3eaf0;--selection:#d5e3f6}
+    [data-theme="dark"]{color-scheme:dark;--page:#202329;--sidebar:#1a1e24;--card:#2b3038;--elevated:#333943;--row:#252b33;--line:#414954;--ink:#f0f3f8;--muted:#a8b3c1;--blue:#8cbaff;--green:#75dfac;--orange:#f3bf70;--red:#ff989b;--track:#424b56;--selection:#2f4564}
+    *{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font:13px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif}button,input,select{font:inherit}button{cursor:pointer;color:inherit}button:disabled{cursor:default;opacity:.55}button,input,select{outline-offset:3px}button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--blue)}a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}button{border:1px solid var(--line);border-radius:7px;background:var(--elevated);padding:7px 12px}button:hover{background:var(--row)}button.primary{background:#1766c2;border-color:#1766c2;color:white}button.link{background:none;border:0;padding:3px 6px;color:var(--blue)}button.selected{background:var(--selection);border-color:transparent;color:var(--blue)}.muted{color:var(--muted)}.small{font-size:11px}.mono{font:11px/1.55 ui-monospace,SFMono-Regular,monospace}.flex{display:flex;align-items:center;gap:8px}.space{justify-content:space-between}.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;border-radius:6px;padding:3px 7px;background:var(--row);color:var(--muted)}.badge.plan{color:var(--blue);background:var(--selection)}.badge.green{color:var(--green)}.badge.orange{color:var(--orange)}.badge.red{color:var(--red)}.dot{width:5px;height:5px;border-radius:50%;background:currentColor;display:inline-block}.icon{width:30px;height:30px;object-fit:contain}.app{display:grid;grid-template-columns:190px minmax(0,1fr);min-height:100vh}.sidebar{padding:20px 12px;border-right:1px solid var(--line);background:var(--sidebar);display:flex;flex-direction:column}.traffic{display:flex;gap:7px;padding:0 8px 25px}.traffic i{height:10px;width:10px;border-radius:50%;background:#ff6058}.traffic i:nth-child(2){background:#ffbf2f}.traffic i:nth-child(3){background:#28c840}.appname{font-size:16px;font-weight:700;letter-spacing:-.4px;padding:0 10px 20px}.navigation{display:grid;gap:3px}.navitem{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:7px;color:var(--muted);font-weight:500}.navitem.current{background:#1766c2;color:white}.navicon{width:19px;text-align:center;font-size:16px}.navitem img{width:18px}.navline{height:1px;background:var(--line);margin:15px 8px}.sidebar-bottom{margin-top:auto;padding:24px 10px 0;color:var(--muted);font-size:11px}.workspace{min-width:0}.titlebar{height:62px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--card)}h1{margin:0;font-size:16px;font-weight:650}.title-actions{display:flex;gap:8px;align-items:center}.demo-label{color:var(--muted);font-size:11px;padding-right:5px}.chrome{padding:16px 24px;background:var(--card);border-bottom:1px solid var(--line)}.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px}.search{flex:1;min-width:120px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--elevated);border-radius:7px;padding:6px 10px;color:var(--muted)}.search input{border:0;background:transparent;color:var(--ink);width:100%;font-size:12px;padding:2px}.scopebar{display:flex;align-items:center;gap:5px;flex-wrap:wrap}.scopebar button{border:0;font-size:12px;padding:6px 11px;background:transparent}.scopebar button.selected{background:var(--selection)}.scopebar img{width:16px;vertical-align:-3px;margin-right:4px}.summary{display:flex;margin-left:auto;gap:15px;font-size:11px;color:var(--muted)}.summary b{color:var(--ink);font-size:13px;margin-right:3px}.content{padding:22px 24px 24px;max-width:1500px;margin:auto}.grouphead{display:flex;align-items:center;gap:10px;margin-bottom:16px}.grouphead h2{font-size:19px;letter-spacing:-.4px;line-height:1.35;margin:0 0 3px}.group-actions{margin-left:auto;display:flex;align-items:center;gap:6px}.group-actions button{font-size:11px}.source-note{display:flex;align-items:flex-start;gap:9px;background:var(--row);border-radius:8px;padding:10px 12px;margin-bottom:16px;color:var(--muted);font-size:12px}.source-note .info{color:var(--blue);font-weight:600}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.account{min-height:246px;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:17px 18px;display:flex;flex-direction:column}.account-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:19px}.account h3{font-size:14px;font-weight:650;margin:0}.account-head .badge{margin-left:auto}.account-head .subtitle{font-size:11px;margin-top:2px;color:var(--muted)}.quota{margin-bottom:12px}.quota-label{display:flex;align-items:baseline;gap:5px;margin-bottom:6px;font-size:11px;color:var(--muted)}.quota-label .value{margin-left:auto;font-size:13px;font-weight:650;font-variant-numeric:tabular-nums;color:var(--green)}.quota-label .reset{min-width:70px;text-align:right;font-size:11px}.track{height:6px;background:var(--track);border-radius:3px;overflow:hidden}.fill{height:100%;background:var(--green);border-radius:3px}.tight .value{color:var(--orange)}.tight .fill{background:var(--orange)}.critical .value{color:var(--red)}.critical .fill{background:var(--red)}.account-footer{margin-top:auto;display:flex;align-items:center;gap:6px;padding-top:8px;color:var(--muted);font-size:11px}.account-footer .detail{margin-left:auto;font-size:11px}.notice{font-size:11px;color:var(--muted);margin:0 0 12px}.notice.warn{color:var(--orange)}.blank{flex:1;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:0 0 17px}.blank h4{font-size:14px;margin:0 0 6px}.blank p{font-size:12px;color:var(--muted);margin:0;max-width:280px}.empty-message{display:none;padding:30px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);grid-column:1/-1;text-align:center}.testbar{display:flex;flex-wrap:wrap;align-items:center;gap:7px;border-top:1px solid var(--line);margin-top:21px;padding-top:15px;font-size:11px}.testbar>span{color:var(--muted);margin-right:5px}.testbar button{font-size:11px;padding:5px 9px}.support{display:flex;justify-content:space-between;gap:12px;margin-top:12px;font-size:11px;color:var(--muted)}.cardcheck{display:none;margin:2px 0}.batch .cardcheck{display:block}.batchbar{display:none;align-items:center;gap:8px;margin-top:15px}.batch .batchbar{display:flex}.batch .batchbar span{margin-right:auto;color:var(--muted)}dialog{border:1px solid var(--line);padding:0;border-radius:13px;width:min(540px,calc(100vw - 30px));background:var(--card);color:var(--ink);box-shadow:0 15px 65px #0003}dialog::backdrop{background:#15213a60}.dialog-head{padding:18px 22px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}.dialog-head h2{font-size:16px;margin:0}.dialog-head button{margin-left:auto;padding:3px 9px;font-size:16px}.dialog-body{padding:20px 22px}.dialog-body h3{font-size:13px;margin:15px 0 8px}.dialog-body p{font-size:12px;color:var(--muted);margin:0 0 13px}.datalist{margin:0}.datalist>div{display:flex;justify-content:space-between;gap:20px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px}.datalist dt{color:var(--muted)}.datalist dd{margin:0;text-align:right}.dialog-foot{padding:14px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}.steps{padding:0;list-style:none;margin:16px 0}.steps li{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}.stepnum{font-size:11px;border:1px solid var(--line);border-radius:50%;width:22px;height:22px;display:grid;place-items:center;flex-shrink:0}.steps b{font-size:12px}.steps p{font-size:11px;margin:3px 0 0}.select-row{display:flex;gap:8px;align-items:center}.select-row select{width:100%;border:1px solid var(--line);background:var(--elevated);color:var(--ink);border-radius:7px;padding:9px}.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 17px;background:var(--ink);color:var(--page);border-radius:8px;font-size:12px;opacity:0;pointer-events:none;transition:opacity .15s;z-index:5;max-width:90vw;text-align:center}.toast.visible{opacity:1}.paused .fill{background:var(--muted)}.paused .quota-label .value{color:var(--muted)}
+    @media(max-width:1000px){.app{grid-template-columns:165px minmax(0,1fr)}.content,.chrome{padding-left:18px;padding-right:18px}.summary{gap:8px}.toolbar>button:not(.primary){display:none}.group-actions button.link{display:none}.account{padding:15px}.grid{gap:12px}}
+    @media(max-width:820px){.app{grid-template-columns:145px minmax(0,1fr)}.grid{grid-template-columns:1fr}.sidebar{padding-left:7px;padding-right:7px}.navitem{font-size:11px}.summary{display:none}.demo-label{display:none}.titlebar{padding:0 18px}.support{flex-direction:column}.grouphead{flex-wrap:wrap}.group-actions{margin-left:auto}.account{min-height:235px}}
+    @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+    .codex-reference{margin-top:25px}.codex-reference .account{min-height:210px}.codex-reference .grouphead{margin-bottom:12px}.codex-reference .grouphead h2{font-size:16px}
+    .routing{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--card);margin-bottom:16px}.routing h3{margin:0 0 3px;font-size:14px}.routing .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 8px}.routing select{min-width:220px;max-width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:var(--elevated);color:var(--ink)}.account-actions{display:flex;gap:7px;margin:10px 0 4px;font-size:11px}.account-actions button{font-size:11px}.account-actions .link{margin-left:auto}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="应用导航示意">
+      <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="appname">AIUsage</div>
+      <nav class="navigation">
+        <div class="navitem"><span class="navicon">▤</span>仪表盘</div>
+        <div class="navitem current"><span class="navicon">▦</span>订阅账号</div>
+        <div class="navitem"><span class="navicon">◈</span>API 提供商</div>
+        <div class="navitem"><span class="navicon">⌘</span>CPA 网关</div>
+        <div class="navline"></div>
+        <div class="navitem"><img src="../../AIUsage/Resources/Assets.xcassets/ProviderIcons/claude.imageset/claude.svg" alt="">Claude</div>
+        <div class="navitem"><span class="navicon">›_</span>Codex</div>
+        <div class="navitem"><span class="navicon">▥</span>用量统计</div>
+        <div class="navline"></div>
+        <div class="navitem"><span class="navicon">♧</span>消息</div>
+        <div class="navitem"><span class="navicon">⚙</span>设置</div>
+      </nav>
+      <div class="sidebar-bottom">Claude 订阅监控<br>2026-10-06</div>
+    </aside>
+    <main class="workspace">
+      <header class="titlebar"><h1>订阅账号</h1><div class="title-actions"><span class="demo-label">设计预览 · 示例数据</span><button id="theme">深色模式</button><button id="all-refresh">检查同步</button></div></header>
+      <section class="chrome" aria-label="筛选和操作">
+        <div class="toolbar"><label class="search"><span aria-hidden="true">⌕</span><input id="search" placeholder="搜索配置、账号或备注…" aria-label="搜索配置、账号或备注"></label><button id="batch">整页批量</button><button id="sources">管理来源</button><button class="primary" id="add">＋ 添加应用</button></div>
+        <div class="scopebar"><button class="scope selected" data-scope="all">全部应用</button><button class="scope" data-scope="codex">Codex <span class="muted">1</span></button><button class="scope" data-scope="claude"><img src="../../AIUsage/Resources/Assets.xcassets/ProviderIcons/claude.imageset/claude.svg" alt="">Claude 订阅 <span class="muted">3</span></button><div class="summary"><span><b>4</b>账号</span><span><b>3</b>有快照</span><span><b>1</b>待同步</span></div></div>
+      </section>
+      <div class="content" id="content">
+        <div class="grouphead"><img class="icon" src="../../AIUsage/Resources/Assets.xcassets/ProviderIcons/claude.imageset/claude.svg" alt="Claude"><div><h2>Claude 订阅</h2><div class="muted small">5 小时 · 周额度</div></div><div class="group-actions"><span class="badge green" id="sync-status"><i class="dot"></i>同步已启用</span><button class="link" id="pause">暂停同步</button><button id="connect">＋ 连接账号</button></div></div>
+        <section class="routing" id="launch-routing" aria-label="新会话来源设计">
+          <h3>Code 启动账号</h3>
+          <div class="controls"><select id="session-source" aria-label="Code 启动账号"><option value="proxy">API / 默认配置</option><option value="personal">官方订阅 · 个人配置</option><option value="work">官方订阅 · 工作配置</option></select><button class="primary" id="launch-code">启动 Code</button></div>
+          <div class="muted small" id="source-scope">仅用于 AIUsage 启动的新会话</div>
+        </section>
+        <div class="grid" id="grid">
+          <article class="account" data-app="claude" data-query="claude 个人配置 personal pro" id="primary-account">
+            <div class="account-head"><label class="cardcheck"><input type="checkbox" aria-label="选择个人配置"></label><img class="icon" src="../../AIUsage/Resources/Assets.xcassets/ProviderIcons/claude.imageset/claude.svg" alt=""><div><h3>个人配置</h3><div class="subtitle">~/.claude-aiusage/personal</div></div><span class="badge">额度快照</span></div>
+            <div id="primary-body"></div>
+            <div class="account-actions"><button data-use-profile="personal">使用账号</button><button class="link" data-launch-profile="personal">启动 Code</button></div>
+            <div class="account-footer"><span id="primary-source">Code · 2 分钟前</span><button class="link detail" data-details="primary">详情</button></div>
+          </article>
+          <article class="account" data-app="claude" data-query="claude 工作配置 work max sonnet">
+            <div class="account-head"><label class="cardcheck"><input type="checkbox" aria-label="选择工作配置"></label><img class="icon" src="../../AIUsage/Resources/Assets.xcassets/ProviderIcons/claude.imageset/claude.svg" alt=""><div><h3>工作配置</h3><div class="subtitle">~/.claude-aiusage/work</div></div><span class="badge">额度快照</span></div>
+            <div class="quota"><div class="quota-label"><span>5 小时剩余</span><span class="value">46%</span><span class="reset">2h 10m 后重置</span></div><div class="track"><div class="fill" style="width:46%"></div></div></div>
+            <div class="quota"><div class="quota-label"><span>本周剩余</span><span class="value">28%</span><span class="reset">3d 4h 后重置</span></div><div class="track"><div class="fill" style="width:28%"></div></div></div>
+            <div class="account-actions"><button data-use-profile="work">使用账号</button><button class="link" data-launch-profile="work">启动 Code</button></div>
+            <div class="account-footer"><span>Code · 3 分钟前</span><button class="link detail" data-details="work">详情</button></div>
+          </article>
+          <article class="account" data-app="claude" data-query="claude 默认配置 待接收 身份待确认">
+            <div class="account-head"><label class="cardcheck"><input type="checkbox" aria-label="选择默认配置"></label><img class="icon" src="../../AIUsage/Resources/Assets.xcassets/ProviderIcons/claude.imageset/claude.svg" alt=""><div><h3>默认 Claude 配置</h3><div class="subtitle">~/.claude</div></div><span class="badge">已连接</span></div>
+            <div class="blank"><h4>待同步</h4><p>启动 Code 后同步额度。</p></div>
+            <div class="account-footer"><span>暂无用量记录</span><button class="link detail" id="connection-help">连接设置</button></div>
+          </article>
+          <div class="empty-message" id="empty-message">无匹配账号</div>
+        </div>
+        <section class="codex-reference" id="codex-reference" aria-label="现有 Codex 样式对照">
+          <div class="grouphead"><img class="icon" src="../../AIUsage/Resources/Assets.xcassets/ProviderIcons/codex.imageset/codex.png" alt=""><div><h2>Codex</h2></div></div>
+          <div class="grid">
+          <article class="account" data-app="codex" data-query="codex 对照 plus">
+            <div class="account-head"><img class="icon" src="../../AIUsage/Resources/Assets.xcassets/ProviderIcons/codex.imageset/codex.png" alt=""><div><h3>Codex</h3><div class="subtitle">codex@example.com</div></div><span class="badge plan">Plus</span></div>
+            <div class="quota"><div class="quota-label"><span>5 小时剩余</span><span class="value">89%</span><span class="reset">4h 20m 后重置</span></div><div class="track"><div class="fill" style="width:89%"></div></div></div>
+            <div class="quota"><div class="quota-label"><span>本周剩余</span><span class="value">67%</span><span class="reset">5d 8h 后重置</span></div><div class="track"><div class="fill" style="width:67%"></div></div></div>
+            <div class="account-footer"><span>Codex · 3 分钟前</span></div>
+          </article>
+          </div>
+        </section>
+        <div class="batchbar"><span id="batch-count">已选 0 个账号</span><button id="hide-selected">隐藏所选</button><button id="batch-done">完成</button></div>
+        <div class="testbar"><span>状态预览</span><button class="scenario selected" data-scenario="normal">正常</button><button class="scenario" data-scenario="tight">额度紧张</button><button class="scenario" data-scenario="stale">旧快照</button><button class="scenario" data-scenario="reset">重置待同步</button><button class="scenario" data-scenario="disconnected">未连接</button><button class="scenario" data-scenario="error">解析失败</button></div>
+        <div class="support"><a href="../CLAUDE_SUBSCRIPTION_MONITORING_DESIGN.md">设计文档</a></div>
+      </div>
+    </main>
+  </div>
+  <dialog id="details" aria-labelledby="details-title"><div class="dialog-head"><h2 id="details-title">个人配置 · 详情</h2><button data-close aria-label="关闭详情">×</button></div><div class="dialog-body" id="details-body"></div><div class="dialog-foot"><a href="https://claude.ai/settings/usage" target="_blank" rel="noopener">官方用量页</a><button id="probe">Code 用量</button><button data-close>完成</button></div></dialog>
+  <dialog id="connection" aria-labelledby="connection-title"><div class="dialog-head"><img class="icon" src="../../AIUsage/Resources/Assets.xcassets/ProviderIcons/claude.imageset/claude.svg" alt=""><h2 id="connection-title">连接 Claude 订阅</h2><button data-close aria-label="关闭连接说明">×</button></div><div class="dialog-body"><label for="profile" class="small muted">配置目录</label><div class="select-row"><select id="profile"><option>默认配置 · ~/.claude</option><option>工作配置 · ~/.claude-aiusage/work</option><option>其他目录</option></select></div><ol class="steps"><li><span class="stepnum">1</span><div><b>登录 Claude Code</b><p>用 /status 确认订阅账号。</p></div></li><li><span class="stepnum">2</span><div><b>启用额度回传</b><p>仅更新 statusLine，保留原状态栏。</p></div></li><li><span class="stepnum">3</span><div><b>开始使用</b><p>收到 Code 响应后同步额度。</p></div></li></ol><div class="source-note" style="margin-bottom:0">预览，不执行配置变更。</div></div><div class="dialog-foot"><button data-close>取消</button><button class="primary" id="preview-change">预览变更</button></div></dialog>
+  <dialog id="change-preview" aria-labelledby="change-title"><div class="dialog-head"><h2 id="change-title">连接变更</h2><button data-close aria-label="关闭变更预览">×</button></div><div class="dialog-body"><dl class="datalist"><div><dt>修改范围</dt><dd>所选目录的 statusLine</dd></div><div><dt>原状态栏</dt><dd>保留</dd></div><div><dt>额度快照</dt><dd>本地保存</dd></div><div><dt>登录凭证</dt><dd>不读取</dd></div><div><dt>其他设置</dt><dd>不修改</dd></div><div><dt>停用回传</dt><dd>恢复原状态栏</dd></div></dl></div><div class="dialog-foot"><button data-close>关闭</button></div></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script>
+    // 仅模拟交互，不发网络请求，不读取文件或执行真实命令。
+    const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+    let scenario='normal',scope='all',paused=false,toastTimer;
+    function updateSessionSource(){const source=$('#session-source').value;$$('[data-use-profile]').forEach(b=>{b.textContent=b.dataset.useProfile===source?'已选用':'使用账号';b.disabled=b.dataset.useProfile===source})}
+    $('#session-source').addEventListener('change',updateSessionSource);
+    $$('[data-use-profile]').forEach(b=>b.addEventListener('click',()=>{$('#session-source').value=b.dataset.useProfile;updateSessionSource()}));
+    $$('[data-launch-profile]').forEach(b=>b.addEventListener('click',()=>notify('预览：以'+(b.dataset.launchProfile==='personal'?'个人':'工作')+'配置启动 Code。')));
+    $('#launch-code').addEventListener('click',()=>notify('预览：启动 Code。'));
+    function notify(message){$('#toast').textContent=message;$('#toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),3600)}
+    function quota(label,value,reset){const tone=value<=10?'critical':value<=20?'tight':'';return '<div class="quota '+tone+'"><div class="quota-label"><span>'+label+'</span><span class="value">'+value+'%</span><span class="reset">'+reset+'</span></div><div class="track"><div class="fill" style="width:'+value+'%"></div></div></div>'}
+    function renderScenario(){
+      let body=quota('5 小时剩余',76.5,'2h 18m 后重置')+quota('本周剩余',58.8,'4d 6h 后重置'),source='Code · 2 分钟前';
+      if(scenario==='tight'){body=quota('5 小时剩余',6,'2h 18m 后重置')+quota('本周剩余',17,'4d 6h 后重置')}
+      if(scenario==='stale'){body='<p class="notice warn">旧快照，待更新。</p>'+body;source='Code · 38 分钟前'}
+      if(scenario==='reset'){body='<div class="blank"><h4>重置待同步</h4><p>5 小时窗口已到重置时间。</p></div>'+quota('本周剩余',58.8,'4d 6h 后重置');source='Code · 3 小时前'}
+      if(scenario==='disconnected'){body='<div class="blank"><h4>未连接</h4><button class="link" onclick="document.querySelector(\'#connection\').showModal()" style="margin-top:10px">连接账号</button></div>';source='暂无用量记录'}
+      if(scenario==='error'){body='<p class="notice warn">格式不支持，保留上次快照。</p>'+quota('5 小时剩余',76.5,'上次记录')+quota('本周剩余',58.8,'上次记录');source='Code · 38 分钟前'}
+      $('#primary-body').innerHTML=body;$('#primary-source').textContent=source;
+      $$('.scenario').forEach(b=>{b.classList.toggle('selected',b.dataset.scenario===scenario);b.setAttribute('aria-pressed',String(b.dataset.scenario===scenario))});
+    }
+    function filter(){const q=$('#search').value.toLowerCase().trim();let count=0;$$('.account').forEach(card=>{const show=(scope==='all'||card.dataset.app===scope)&&card.dataset.query.includes(q);card.hidden=!show;card.style.display=show?'flex':'none';if(show)count++});$('#empty-message').style.display=count?'none':'block';$('#codex-reference').hidden=$('.account[data-app="codex"]').hidden;$('.grouphead').style.display=scope==='codex'?'none':'flex';$('#grid').style.display=scope==='codex'?'none':'grid';$('.testbar').style.display=scope==='codex'?'none':'flex'}
+    function renderDetails(which){
+      const work=which==='work';$('#details-title').textContent=(work?'工作配置':'个人配置')+' · 详情';
+      $('#details-body').innerHTML='<dl class="datalist"><div><dt>数据来源</dt><dd>Claude Code</dd></div><div><dt>配置目录</dt><dd>~/.claude-aiusage/'+(work?'work':'personal')+'</dd></div><div><dt>记录时间</dt><dd>'+(work?'3 分钟前':$('#primary-source').textContent.replace('Code · ',''))+'</dd></div><div><dt>测量时间</dt><dd>未提供</dd></div><div><dt>套餐与支出</dt><dd>未提供</dd></div></dl><p style="margin-top:16px">Code 会话快照，其他设备的用量可能尚未同步。</p>';
+      $('#details').showModal();
+    }
+    $$('.scenario').forEach(b=>b.addEventListener('click',()=>{scenario=b.dataset.scenario;renderScenario()}));
+    $$('.scope').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.scope==='all'));b.addEventListener('click',()=>{scope=b.dataset.scope;$$('.scope').forEach(x=>{x.classList.toggle('selected',x===b);x.setAttribute('aria-pressed',String(x===b))});filter()})});
+    $('#search').addEventListener('input',filter);
+    $('#theme').addEventListener('click',()=>{const dark=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=dark?'dark':'light';$('#theme').textContent=dark?'浅色模式':'深色模式'});
+    ['#add','#sources','#connect','#connection-help'].forEach(s=>$(s).addEventListener('click',()=>$('#connection').showModal()));
+    $('#preview-change').addEventListener('click',()=>{$('#connection').close();$('#change-preview').showModal()});
+    $$('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
+    $$('[data-details]').forEach(b=>b.addEventListener('click',()=>renderDetails(b.dataset.details)));
+    $('#all-refresh').addEventListener('click',()=>notify('预览：检查本地记录。'));
+    $('#probe').addEventListener('click',()=>notify('在 Code 中输入 /usage 查看用量。'));
+    $('#pause').addEventListener('click',()=>{paused=!paused;$('#content').classList.toggle('paused',paused);$('#pause').textContent=paused?'恢复同步':'暂停同步';$('#sync-status').innerHTML='<i class="dot"></i>'+(paused?'同步已暂停':'同步已启用');$('#sync-status').className='badge '+(paused?'orange':'green')});
+    function toggleBatch(){const on=$('#content').classList.toggle('batch');$('#batch').textContent=on?'完成':'整页批量';if(!on)$$('.cardcheck input').forEach(c=>c.checked=false);batchCount()}
+    function batchCount(){$('#batch-count').textContent='已选 '+$$('.cardcheck input:checked').length+' 个账号'}
+    $('#batch').addEventListener('click',toggleBatch);$('#batch-done').addEventListener('click',toggleBatch);$$('.cardcheck input').forEach(c=>c.addEventListener('change',batchCount));
+    $('#hide-selected').addEventListener('click',()=>notify('预览：隐藏所选条目。'));
+    $$('.scope').forEach(b=>b.addEventListener('click',()=>{$('#launch-routing').hidden=scope==='codex'}));
+    updateSessionSource();
+    renderScenario();
+  </script>
+</body>
+</html>

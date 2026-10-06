@@ -4,7 +4,7 @@ import QuotaBackend
 
 // MARK: - ProxyStatsView
 // 用量统计页主视图。数据源为各产品的本地永久账本（通过 StatsDataAdapter 聚合），
-// 与仪表盘热力图/概览共享同一口径。Claude 账本来自 Gateway 请求归档。
+// 与仪表盘热力图/概览共享同一口径。Claude 同时包含代理费用与 Code 非代理 Token。
 
 struct ProxyStatsView: View {
     @EnvironmentObject var appState: AppState
@@ -105,14 +105,15 @@ struct ProxyStatsView: View {
         Binding(get: { selectedTrack }, set: { trackRaw = $0.rawValue })
     }
 
-    /// 仅 Codex 家族才有代理/非代理两轨；其它家族强制合计。
+    /// Claude / Codex 共用代理与非代理两轨。
     var effectiveTrack: UsageTrack {
-        sourceFamily == .codex ? selectedTrack : .combined
+        sourceFamily == .codex || sourceFamily == .claude ? selectedTrack : .combined
     }
 
-    /// 轨道切换器仅在 Codex 家族显示（Claude 单轨、综合含无后缀的 Claude 行不宜按轨过滤）。
+    /// 综合页不按轨过滤；Claude / Codex 的单选页显示轨道。
     var showsTrackPicker: Bool {
-        sourceFamily == .codex && !codexLocalProviders.isEmpty
+        (sourceFamily == .codex && !codexLocalProviders.isEmpty)
+            || (sourceFamily == .claude && !claudeLocalProviders.isEmpty)
     }
 
     /// 非代理轨不监控价格 → 选「非代理」轨时全页隐藏费用相关 UI（费用 tile / 费用-Tokens 切换 /
@@ -148,6 +149,14 @@ struct ProxyStatsView: View {
                             let colorMap = buildModelColorMap(from: ranked)
                             LazyVStack(spacing: 16) {
                                 controlDeck
+                                if sourceFamily == .claude, effectiveTrack != .proxy,
+                                   let metric = claudeLocalProviders.flatMap(\.metrics).first(where: { ["Unverified Tokens", "待确认 Token"].contains($0.label) }) {
+                                    Text(L("History: \(metric.value) tokens awaiting source verification · excluded from totals",
+                                           "历史中 \(metric.value) Token 来源待确认 · 未计入合计"))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
                                 summaryStrip
                                 heatmapSection
                                 insightPanelsSection(colorMap: colorMap, sparklineMap: buildSparklineMap(from: ranked))
@@ -200,8 +209,8 @@ struct ProxyStatsView: View {
             Text(L("No usage data", "暂无用量数据"))
                 .font(.title3.weight(.medium))
                 .foregroundStyle(.secondary)
-            Text(L("Usage data will appear after Claude Gateway, Codex or OpenCode records local usage.",
-                   "Claude Gateway、Codex 或 OpenCode 记录本地用量后，数据会自动展示。"))
+            Text(L("Local usage from Claude Code, Codex or OpenCode appears here.",
+                   "Claude Code、Codex 或 OpenCode 的本地用量会显示在这里。"))
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -295,8 +304,8 @@ struct ProxyStatsView: View {
             ) { track in
                 track.label
             }
-            .help(L("Split Codex usage into Proxy (priced archive) and Non-Proxy (token-only local logs) tracks.",
-                    "将 Codex 用量拆分为代理（可计价归档）与非代理（仅 Token 本地日志）两轨。"))
+            .help(L("Proxy: frozen costs. Non-Proxy: local tokens only.",
+                    "代理：冻结费用。非代理：仅统计本地 Token。"))
         }
     }
 
@@ -359,9 +368,10 @@ struct ProxyStatsView: View {
             if showClaude && !claudeLocalProviders.isEmpty {
                 LocalTokenUsageHeatmap(
                     providers: claudeLocalProviders,
-                    brandLabel: "Claude",
+                    brandLabel: effectiveTrack == .combined ? "Claude" : "Claude · \(effectiveTrack.label)",
                     brandAsset: "claude",
                     accent: HeatmapBrandColor.claude(colorScheme),
+                    track: effectiveTrack,
                     onTooltipChange: { presentation in
                         if let presentation {
                             activeHeatmapTooltip = presentation

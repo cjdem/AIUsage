@@ -13,7 +13,7 @@ struct ProviderIconView: View {
     private var assetName: String {
         switch providerId {
         case "codex", "codex-cost": return "codex"
-        case "anthropic": return "claude"
+        case "anthropic", "claude-subscription": return "claude"
         case "gemini-cli": return "gemini"
         case "github-copilot": return "copilot"
         default: return providerId

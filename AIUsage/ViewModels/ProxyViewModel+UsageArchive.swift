@@ -3,7 +3,7 @@ import QuotaBackend
 
 // MARK: - Proxy Usage Archive Folding
 // 把 recentLogs 折叠进永久用量归档（ProxyUsageArchiveStore）。
-// 折叠语义：整日替换——重算给定日期的全量聚合并覆盖归档对应日期，保证刷新幂等、不膨胀。
+// 实时日志按日重算，已清理日志的冻结贡献由 store 合并，保证刷新幂等、不丢历史。
 // 调用时机：loadLogs 后（裁剪前）一次全量入档；每个持久化周期把脏日期增量重算入档。
 
 extension ProxyViewModel {
@@ -30,22 +30,37 @@ extension ProxyViewModel {
         guard !dayRanges.isEmpty else { return }
 
         var perFamily: [ProxyUsageFamily: [String: ProxyUsageDay]] = [:]
+        // 请求身份不依赖日键或节点仍存在；覆盖跨时区和清理途中恢复的旧分片。
+        let retainedIDs = usageArchiveStore.retainedLogIDs()
         for (configId, logs) in recentLogs {
             let family = usageFamily(forConfigId: configId)
             for log in logs {
                 guard let range = dayRanges.first(where: { log.timestamp >= $0.start && log.timestamp < $0.end }) else {
                     continue
                 }
-                var day = perFamily[family]?[range.key] ?? ProxyUsageDay()
-                var agg = day.models[log.upstreamModel] ?? ProxyUsageModelAgg()
-                agg.add(log)
-                day.models[log.upstreamModel] = agg
-                perFamily[family, default: [:]][range.key] = day
+                guard !retainedIDs.contains(log.id) else { continue }
+                // 原位累加，避免每条日志复制日聚合中不断增长的响应 ID 集合。
+                perFamily[family, default: [:]][range.key, default: ProxyUsageDay()]
+                    .models[log.upstreamModel, default: ProxyUsageModelAgg()].add(log)
             }
         }
 
         for (family, days) in perFamily {
             usageArchiveStore.replaceDays(family, days: days)
+        }
+    }
+
+    /// 删除节点、清空日志和过期裁剪共用此入口；保留最小聚合和请求 ID，不保留正文。
+    func retainUsageBeforeRemovingLogs(_ logsByConfig: [String: [ProxyRequestLog]]) {
+        var dayKeys = Set<String>()
+        var perFamily: [ProxyUsageFamily: [ProxyRequestLog]] = [:]
+        for (configId, logs) in logsByConfig where !logs.isEmpty {
+            dayKeys.formUnion(logs.map { shardDayKey($0.timestamp) })
+            perFamily[usageFamily(forConfigId: configId), default: []].append(contentsOf: logs)
+        }
+        foldDaysIntoUsageArchive(dayKeys)
+        for (family, logs) in perFamily {
+            usageArchiveStore.retainLogs(family, logs: logs, dayKeyForLog: shardDayKey)
         }
     }
 

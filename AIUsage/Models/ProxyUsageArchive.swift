@@ -10,8 +10,8 @@ import os.log
 // 设计要点：
 // - 原始代理日志（~/.config/aiusage/proxy-logs/）可按保留期裁剪以省空间，
 //   但本归档的每日聚合永不丢失，是热力图 / 用量统计的真相源。
-// - 折叠语义为「整日替换」：保留期窗口内的日期每个持久化周期都用 recentLogs 重算覆盖（幂等，
-//   因为冻结成本是确定性求和），窗口外的旧日期保持上次冻结值不动——杜绝刷新时线性膨胀。
+// - 实时日志按日重算，已清理部分单独冻结并合入总量；清理过的请求 ID 用于跳过恢复日志。
+//   旧读取器仍只读 models，不会把冻结部分相加两次。
 //
 // 数据来源: ProxyViewModel.recentLogs（经 ProxyViewModel+UsageArchive 折叠写入）
 // 持久化:   ~/.config/aiusage/usage-archive/proxy-usage-<family>-v<version>.json
@@ -72,6 +72,8 @@ struct ProxyUsageModelAgg: Codable, Sendable {
     var surfaces: [String: ProxyUsageSurfaceAgg] = [:]
     /// session/conversation id → Codex 请求模型 → token。用于同一会话混合账号与代理时去重。
     var sessions: [String: [String: ProxyUsageSessionTokenAgg]] = [:]
+    var responseMessageIds: Set<String> = []
+    var unidentifiedTokenRequests: Int = 0
 
     var totalTokens: Int { inputTokens + outputTokens + cacheReadTokens + cacheCreateTokens }
 
@@ -84,7 +86,9 @@ struct ProxyUsageModelAgg: Codable, Sendable {
         requests: Int = 0,
         pricingResolvedRequests: Int = 0,
         surfaces: [String: ProxyUsageSurfaceAgg] = [:],
-        sessions: [String: [String: ProxyUsageSessionTokenAgg]] = [:]
+        sessions: [String: [String: ProxyUsageSessionTokenAgg]] = [:],
+        responseMessageIds: Set<String> = [],
+        unidentifiedTokenRequests: Int = 0
     ) {
         self.inputTokens = inputTokens
         self.outputTokens = outputTokens
@@ -95,6 +99,8 @@ struct ProxyUsageModelAgg: Codable, Sendable {
         self.pricingResolvedRequests = pricingResolvedRequests
         self.surfaces = surfaces
         self.sessions = sessions
+        self.responseMessageIds = responseMessageIds
+        self.unidentifiedTokenRequests = unidentifiedTokenRequests
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -107,6 +113,8 @@ struct ProxyUsageModelAgg: Codable, Sendable {
         case pricingResolvedRequests
         case surfaces
         case sessions
+        case responseMessageIds
+        case unidentifiedTokenRequests
     }
 
     init(from decoder: Decoder) throws {
@@ -124,6 +132,9 @@ struct ProxyUsageModelAgg: Codable, Sendable {
             [String: [String: ProxyUsageSessionTokenAgg]].self,
             forKey: .sessions
         ) ?? [:]
+        responseMessageIds = try c.decodeIfPresent(Set<String>.self, forKey: .responseMessageIds) ?? []
+        unidentifiedTokenRequests = try c.decodeIfPresent(Int.self, forKey: .unidentifiedTokenRequests)
+            ?? (totalTokens > 0 ? max(requests, 1) : 0)
     }
 
     mutating func add(_ log: ProxyRequestLog) {
@@ -133,6 +144,8 @@ struct ProxyUsageModelAgg: Codable, Sendable {
         cacheCreateTokens += log.tokensCacheCreation
         costUSD += log.estimatedCostUSD
         requests += 1
+        if let id = log.responseMessageId?.nilIfBlank { responseMessageIds.insert(id) }
+        else if log.tokensInput + log.tokensOutput + log.tokensCache > 0 { unidentifiedTokenRequests += 1 }
         if log.pricingResolved {
             pricingResolvedRequests += 1
         }
@@ -151,10 +164,54 @@ struct ProxyUsageModelAgg: Codable, Sendable {
             sessions[identifier] = models
         }
     }
+
+    /// 合并已清理原日志的冻结聚合；不重新估价。
+    mutating func merge(_ other: Self) {
+        inputTokens += other.inputTokens
+        outputTokens += other.outputTokens
+        cacheReadTokens += other.cacheReadTokens
+        cacheCreateTokens += other.cacheCreateTokens
+        costUSD += other.costUSD
+        requests += other.requests
+        pricingResolvedRequests += other.pricingResolvedRequests
+        responseMessageIds.formUnion(other.responseMessageIds)
+        unidentifiedTokenRequests += other.unidentifiedTokenRequests
+        for (surface, value) in other.surfaces {
+            surfaces[surface, default: ProxyUsageSurfaceAgg()].inputTokens += value.inputTokens
+            surfaces[surface, default: ProxyUsageSurfaceAgg()].outputTokens += value.outputTokens
+            surfaces[surface, default: ProxyUsageSurfaceAgg()].cacheReadTokens += value.cacheReadTokens
+            surfaces[surface, default: ProxyUsageSurfaceAgg()].cacheCreateTokens += value.cacheCreateTokens
+            surfaces[surface, default: ProxyUsageSurfaceAgg()].costUSD += value.costUSD
+            surfaces[surface, default: ProxyUsageSurfaceAgg()].requests += value.requests
+        }
+        for (identifier, models) in other.sessions {
+            for (model, value) in models {
+                sessions[identifier, default: [:]][model, default: ProxyUsageSessionTokenAgg()].inputTokens += value.inputTokens
+                sessions[identifier, default: [:]][model, default: ProxyUsageSessionTokenAgg()].outputTokens += value.outputTokens
+                sessions[identifier, default: [:]][model, default: ProxyUsageSessionTokenAgg()].cacheReadTokens += value.cacheReadTokens
+                sessions[identifier, default: [:]][model, default: ProxyUsageSessionTokenAgg()].cacheCreateTokens += value.cacheCreateTokens
+            }
+        }
+    }
 }
 
 struct ProxyUsageDay: Codable, Sendable {
     var models: [String: ProxyUsageModelAgg] = [:]
+    /// 已删除节点/清理日志的贡献，包含在 models 总量中，不能再参与实时重算。
+    var retainedModels: [String: ProxyUsageModelAgg] = [:]
+    /// 只保留清理过的请求身份，恢复原日志时跳过，防止冻结贡献重复计入。
+    var retainedRequestIds: Set<String> = []
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey { case models, retainedModels, retainedRequestIds }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        models = try c.decodeIfPresent([String: ProxyUsageModelAgg].self, forKey: .models) ?? [:]
+        retainedModels = try c.decodeIfPresent([String: ProxyUsageModelAgg].self, forKey: .retainedModels) ?? [:]
+        retainedRequestIds = try c.decodeIfPresent(Set<String>.self, forKey: .retainedRequestIds) ?? []
+    }
 
     var isEmpty: Bool { models.isEmpty }
 }
@@ -175,6 +232,7 @@ final class ProxyUsageArchiveStore {
 
     private var archives: [ProxyUsageFamily: ProxyUsageArchive] = [:]
     private var loaded: Set<ProxyUsageFamily> = []
+    private var retainedIDs: Set<String> = []
 
     private static let iso8601: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
@@ -189,6 +247,13 @@ final class ProxyUsageArchiveStore {
         loadIfNeeded(family).days
     }
 
+    /// 只在加载或清理时维护，持久化周期不重建全历史身份集合。
+    func retainedLogIDs() -> Set<String> {
+        _ = loadIfNeeded(.claude)
+        _ = loadIfNeeded(.codex)
+        return retainedIDs
+    }
+
     // MARK: Write
 
     /// 用重算后的每日桶「整日替换」归档中对应日期并持久化。
@@ -197,7 +262,40 @@ final class ProxyUsageArchiveStore {
         var archive = loadIfNeeded(family)
         var changed = false
         for (day, bucket) in days where !bucket.isEmpty {
-            archive.days[day] = bucket
+            var replacement = bucket
+            if let previous = archive.days[day] {
+                replacement.retainedModels = previous.retainedModels
+                replacement.retainedRequestIds = previous.retainedRequestIds
+                for (model, retained) in previous.retainedModels {
+                    replacement.models[model, default: ProxyUsageModelAgg()].merge(retained)
+                }
+            }
+            if family == .claude, let previous = archive.days[day] {
+                for (model, old) in previous.models where replacement.models[model] != nil {
+                    var aggregate = replacement.models[model]!
+                    aggregate.responseMessageIds.formUnion(old.responseMessageIds)
+                    aggregate.unidentifiedTokenRequests = max(aggregate.unidentifiedTokenRequests, old.unidentifiedTokenRequests)
+                    replacement.models[model] = aggregate
+                }
+            }
+            archive.days[day] = replacement
+            changed = true
+        }
+        guard changed else { return }
+        archive.updatedAt = Self.iso8601.string(from: Date())
+        archives[family] = archive
+        save(family, archive: archive)
+    }
+
+    /// 清理前已先完成全日折叠；这里只冻结将移除的贡献，不增加现有总量。
+    func retainLogs(_ family: ProxyUsageFamily, logs: [ProxyRequestLog], dayKeyForLog: (Date) -> String) {
+        var archive = loadIfNeeded(family)
+        var changed = false
+        for log in logs {
+            let day = dayKeyForLog(log.timestamp)
+            guard archive.days[day] != nil, retainedIDs.insert(log.id).inserted else { continue }
+            archive.days[day]!.retainedRequestIds.insert(log.id)
+            archive.days[day]!.retainedModels[log.upstreamModel, default: ProxyUsageModelAgg()].add(log)
             changed = true
         }
         guard changed else { return }
@@ -235,6 +333,7 @@ final class ProxyUsageArchiveStore {
             return fresh
         }
         archives[family] = decoded
+        for day in decoded.days.values { retainedIDs.formUnion(day.retainedRequestIds) }
         return decoded
     }
 

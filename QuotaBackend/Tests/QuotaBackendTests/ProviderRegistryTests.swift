@@ -10,6 +10,7 @@ final class ProviderRegistryTests: XCTestCase {
             [
                 "antigravity",
                 "claude",
+                "claude-subscription",
                 "codex-cost",
                 "codex",
                 "copilot",

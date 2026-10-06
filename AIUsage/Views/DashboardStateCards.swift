@@ -239,7 +239,10 @@ struct NeedsConnectionCard: View {
                 Text(L("Connect to start tracking", "连接后即可监控"))
                     .font(.title3)
                     .bold()
-                Text(L(
+                Text(providerId == "claude-subscription" ? L(
+                    "Connect Claude Code to sync subscription quota.",
+                    "连接 Claude Code，同步订阅额度。"
+                ) : L(
                     "Connect this account to see live quota and usage here.",
                     "连接该账号后，就能在这里看到实时额度与用量。"
                 ))

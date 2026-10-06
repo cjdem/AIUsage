@@ -1,5 +1,6 @@
 import Foundation
 import os.log
+import QuotaBackend
 
 private let claudeSettingsLog = Logger(subsystem: "com.aiusage.desktop", category: "ClaudeSettings")
 
@@ -205,8 +206,9 @@ class ClaudeSettingsManager {
 
     /// Full replacement write: backs up current file, then writes the entire settings dict.
     func writeFullSettings(_ settings: [String: Any]) throws {
+        let preserved = try preserveSubscriptionStatusLine(settings)
         backupCurrentSettings()
-        try writeSettings(settings)
+        try writeSettings(preserved)
         claudeSettingsLog.info("Full settings.json replacement written successfully")
     }
 
@@ -229,7 +231,10 @@ class ClaudeSettingsManager {
             return
         }
         do {
-            try data.write(to: URL(fileURLWithPath: settingsPath), options: .atomic)
+            guard let settings = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                throw ClaudeSettingsError.invalidRootObject
+            }
+            try writeSettings(preserveSubscriptionStatusLine(settings))
             claudeSettingsLog.info("Restored settings.json from backup")
         } catch {
             claudeSettingsLog.error("Failed to restore settings.json from backup: \(String(describing: error), privacy: .public)")
@@ -238,6 +243,11 @@ class ClaudeSettingsManager {
     }
 
     // MARK: - Internal
+
+    private func preserveSubscriptionStatusLine(_ settings: [String: Any]) throws -> [String: Any] {
+        try ClaudeSubscriptionConnection().preservingStatusLine(in: settings, current: readSettings(),
+            directory: URL(fileURLWithPath: settingsPath).deletingLastPathComponent().path)
+    }
 
     private func backupCurrentSettings() {
         guard FileManager.default.fileExists(atPath: settingsPath) else { return }

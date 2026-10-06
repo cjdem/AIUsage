@@ -10,6 +10,10 @@ private let startupLog = Logger(subsystem: "com.aiusage.quotaserver", category: 
 setbuf(stdout, nil)
 setbuf(stderr, nil)
 
+if CommandLine.arguments.dropFirst().first == "--claude-statusline" {
+    exit(ClaudeSubscriptionStatusLine.run(arguments: CommandLine.arguments))
+}
+
 // 父进程（宿主 App）一旦退出/崩溃/被强杀，立即终止自身，避免变成占端口的孤儿 helper。
 ParentWatchdog.install()
 

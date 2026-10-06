@@ -49,6 +49,7 @@ public enum UsageNormalizer {
     static let providerThemes: [String: ThemeInfo] = [
         "antigravity": ThemeInfo(accent: "sky", glow: "#5cc9ff"),
         "claude":  ThemeInfo(accent: "sunset", glow: "#ff9d6c"),
+        "claude-subscription": ThemeInfo(accent: "sunset", glow: "#d97757"),
         "codex-cost": ThemeInfo(accent: "indigo", glow: "#6875ff"),
         "codex":   ThemeInfo(accent: "violet", glow: "#8d7dff"),
         "copilot": ThemeInfo(accent: "blue",   glow: "#5aa2ff"),
@@ -107,6 +108,7 @@ public enum UsageNormalizer {
         case "warp":    return normalizeWarp(base: &base, usage: usage)
         case "antigravity": return normalizeAntigravity(base: &base, usage: usage)
         case "claude":  return normalizeClaude(base: &base, usage: usage)
+        case "claude-subscription": return normalizeClaudeSubscription(base: &base, usage: usage)
         case "codex-cost": return normalizeCodexCost(base: &base, usage: usage)
         case "copilot": return normalizeCopilot(base: &base, usage: usage)
         case "codex":   return normalizeCodex(base: &base, usage: usage)
@@ -494,6 +496,7 @@ public enum UsageNormalizer {
             "cli-auth-file": "Local CLI session",
             "claude-project-logs": "Local Claude logs",
             "claude-proxy-usage": "Proxy usage ledger",
+            "claude-local-ledger": "Proxy + non-proxy ledger",
             "codex-session-logs": "Local Codex logs",
             "codex-proxy-non-proxy": "Proxy + non-proxy ledger",
             "opencode-session-db": "Local OpenCode sessions",

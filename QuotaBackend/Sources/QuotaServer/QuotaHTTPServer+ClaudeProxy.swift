@@ -164,6 +164,7 @@ extension QuotaHTTPServer {
                 cacheCreationTokens: response.usage.cacheCreationInputTokens ?? 0,
                 cacheReadTokens: response.usage.cacheReadInputTokens ?? 0,
                 nodeId: activeNodeId,
+                responseMessageId: response.id,
                 clientSurface: resolvedClaudeSurface(for: request)
             )
             return jsonResponse(encodable: response, headers: headers)
@@ -770,6 +771,7 @@ extension QuotaHTTPServer {
                 cacheCreationTokens: reportedCacheCreation ?? 0,
                 cacheReadTokens: reportedCacheRead ?? 0,
                 nodeId: activeNodeId,
+                responseMessageId: messageID,
                 clientSurface: resolvedClaudeSurface(for: request)
             )
 
@@ -818,6 +820,7 @@ extension QuotaHTTPServer {
         sessionId: String? = nil,
         conversationId: String? = nil,
         upstreamRequestId: String? = nil,
+        responseMessageId: String? = nil,
         clientSurface: ClaudeClientSurface = .unknown
     ) {
         var parts = [
@@ -857,6 +860,9 @@ extension QuotaHTTPServer {
         }
         if let upstreamRequestId, !upstreamRequestId.isEmpty {
             parts.append("\"upstream_request_id\":\(escapeJSON(upstreamRequestId))")
+        }
+        if let responseMessageId, !responseMessageId.isEmpty {
+            parts.append("\"response_message_id\":\(escapeJSON(responseMessageId))")
         }
         parts.append("\"client_surface\":\(escapeJSON(clientSurface.rawValue))")
         // stdout is parsed by the macOS host app for structured log ingestion

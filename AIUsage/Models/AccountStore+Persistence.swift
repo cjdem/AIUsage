@@ -63,6 +63,9 @@ nonisolated enum AccountIdentityPolicy {
     /// Codex 绑定实际托管副本；原始 sourcePath 是可切换账号的共享入口，不能作为绑定身份。
     /// 其他 Provider 保持原有路径策略。
     static func credentialAuthFilePath(_ credential: AccountCredential) -> String? {
+        if credential.providerId == "claude-subscription", credential.authMethod == .auto {
+            return credential.credential.nilIfBlank
+        }
         guard credential.authMethod == .authFile else { return nil }
         if credential.providerId == "codex" { return credential.credential.nilIfBlank }
         return credential.metadata["sourcePath"]?.nilIfBlank

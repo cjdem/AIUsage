@@ -679,6 +679,7 @@ extension ProxyViewModel {
             sessionId: (json["session_id"] as? String)?.nilIfBlank,
             conversationId: (json["conversation_id"] as? String)?.nilIfBlank,
             upstreamRequestId: (json["upstream_request_id"] as? String)?.nilIfBlank,
+            responseMessageId: (json["response_message_id"] as? String)?.nilIfBlank,
             clientSurface: (json["client_surface"] as? String)?.nilIfBlank
         )
 

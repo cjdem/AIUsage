@@ -16,6 +16,8 @@ extension UsageNormalizer {
         let usageRows   = extraInt(usage, "overall.usageRows") ?? 0
         let dupRows     = extraInt(usage, "overall.duplicateRowsRemoved") ?? 0
         let unpricedModels = extraStringArray(usage, "overall.unpricedModels")
+        let uncertainTokens = extraInt(usage, "overall.uncertainTokens") ?? 0
+        let hasProxy = (extraInt(usage, "overall.proxyTokens") ?? overallTokens) > 0
 
         let rawModelItems = (usage.extra["currentMonth.models"]?.value as? [AnyCodable]) ?? []
         let topModels: [ModelInfo] = rawModelItems
@@ -30,7 +32,7 @@ extension UsageNormalizer {
                 case let v as Double: tokens = Int(v)
                 default: tokens = 0
                 }
-                return ModelInfo(label: model, value: formatInt(tokens), note: cost)
+                return ModelInfo(label: model, value: formatInt(tokens), note: model.hasSuffix(" (Non-Proxy)") ? "—" : cost)
             }
 
         let modelBreakdown = extractModelBreakdown(usage, "currentMonth.models")
@@ -46,16 +48,19 @@ extension UsageNormalizer {
         base.statusLabel = "Healthy"
         base.headline = HeadlineInfo(
             eyebrow: "Local token ledger",
-            primary: formatCurrency(monthUsd),
+            primary: hasProxy ? formatCurrency(monthUsd) : formatInt(monthTokens),
             secondary: "\(formatInt(monthTokens)) tokens this month",
-            supporting: "Week \(formatCurrency(weekUsd)) • Today \(formatCurrency(todayUsd))"
+            supporting: hasProxy ? "Proxy costs • Week \(formatCurrency(weekUsd)) • Today \(formatCurrency(todayUsd))" : "Non-proxy tokens • Cost not tracked"
         )
         base.metrics = [
-            MetricInfo(label: "Today",      value: formatCurrency(todayUsd),  note: "\(formatInt(todayTokens)) tokens"),
-            MetricInfo(label: "This Week",  value: formatCurrency(weekUsd),   note: "\(formatInt(weekTokens)) tokens"),
-            MetricInfo(label: "This Month", value: formatCurrency(monthUsd),  note: "\(formatInt(monthTokens)) tokens"),
-            MetricInfo(label: "Scanned Calls", value: formatInt(usageRows),   note: "\(formatInt(dupRows)) duplicate rows removed")
+            MetricInfo(label: "Today",      value: hasProxy ? formatCurrency(todayUsd) : formatInt(todayTokens),  note: hasProxy ? "\(formatInt(todayTokens)) tokens" : "Tokens"),
+            MetricInfo(label: "This Week",  value: hasProxy ? formatCurrency(weekUsd) : formatInt(weekTokens),   note: hasProxy ? "\(formatInt(weekTokens)) tokens" : "Tokens"),
+            MetricInfo(label: "This Month", value: hasProxy ? formatCurrency(monthUsd) : formatInt(monthTokens),  note: hasProxy ? "\(formatInt(monthTokens)) tokens" : "Tokens"),
+            MetricInfo(label: "Scanned Calls", value: formatInt(usageRows),   note: "\(formatInt(dupRows)) proxy responses excluded")
         ]
+        if uncertainTokens > 0 {
+            base.metrics.append(MetricInfo(label: "Unverified Tokens", value: formatInt(uncertainTokens), note: "Excluded from totals"))
+        }
         base.windows = []
         base.costSummary = CostSummaryInfo(
             today: CostPeriod(usd: todayUsd, tokens: todayTokens, rangeLabel: extraString(usage, "today.key") ?? "Today"),
@@ -74,7 +79,7 @@ extension UsageNormalizer {
         )
         base.models = topModels.isEmpty ? nil : topModels
         base.nextResetAt = nil
-        base.spotlight = "This tracker reads AIUsage's Claude proxy usage archive. Token and cost totals are frozen when each proxy request is logged, so it works as a local cost ledger rather than an official subscription meter."
+        base.spotlight = "Claude Code local tokens; proxy costs only. Not subscription quota."
         base.unpricedModels = unpricedModels.isEmpty ? nil : unpricedModels
         return base
     }

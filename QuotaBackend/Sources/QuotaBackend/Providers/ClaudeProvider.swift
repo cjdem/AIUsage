@@ -1,37 +1,68 @@
 import Foundation
 
 // MARK: - Claude Provider
-// Claude 用量统计的唯一数据源 = Gateway 代理用量永久日归档（成本逐条冻结、不可篡改、
-// 支持同模型不同节点不同价）。归档包含 Code / Desktop 等经 Gateway 产生的 Claude 流量；
-// 本类只读 App 侧 ProxyUsageArchiveStore 写出的 JSON，
-// 复用既有聚合 / 时间线辅助构建 ProviderUsage。
-// 数据来源: ~/.config/aiusage/usage-archive/proxy-usage-claude-v1.json（见 ClaudeProvider+ProxyArchive）
-// 注: 旧的本地 JSONL 扫描管线（+Scanning/+Discovery/+FileParsing/+ArchiveStore/定价表）已停用，待清理。
+// 代理采用请求时冻结费用；非代理读取 Code 本地 Token，按响应标识去重，不估算订阅费用。
 
 public struct ClaudeProvider: ProviderFetcher {
     public let id = "claude"
     public let displayName = "Claude"
-    public let description = "Claude Gateway usage archive token and cost ledger"
+    public let description = "Claude proxy costs and local non-proxy token ledger"
 
     /// 归档为空时的回退天数（用于 trailing 时间线长度）。
     static let defaultScanDays = 30
 
     let homeDirectory: String
     let timeZone: TimeZone
+    let environment: [String: String]
 
     public init(homeDirectory: String = FileManager.default.homeDirectoryForCurrentUser.path,
-                timeZone: TimeZone = .current) {
+                timeZone: TimeZone = .current,
+                environment: [String: String] = ProcessInfo.processInfo.environment) {
         self.homeDirectory = homeDirectory
         self.timeZone = timeZone
+        self.environment = environment
     }
 
     public func fetchUsage() async throws -> ProviderUsage {
         let now = Date()
 
-        // 唯一数据源：代理用量永久日归档（成本逐条冻结、不可篡改、支持同模型不同节点不同价）。
-        let archivedDays = loadProxyUsageDays()
+        let proxy = try loadProxyUsage()
+        let records = try await ClaudeUsageLedger.shared.scan(homeDirectory: homeDirectory, environment: environment, timeZone: timeZone)
+        var archivedDays = proxy.days
+        var duplicates = 0
+        var uncertainTokens = 0
+        var uncertainRows = 0
+        // 旧日归档未记录时区。用同一时刻在合法 UTC 偏移两端的日期覆盖候选，
+        // 不能因系统时区变化将旧代理行重新判成直连。
+        let earliestClock = CallAnalyticsClock(timeZone: TimeZone(secondsFromGMT: -12 * 3600)!)
+        let latestClock = CallAnalyticsClock(timeZone: TimeZone(secondsFromGMT: 14 * 3600)!)
+        let utcClock = CallAnalyticsClock(timeZone: TimeZone(secondsFromGMT: 0)!)
+        for row in records {
+            let rowDay = dayKey(row.timestamp)
+            if proxy.responseIDs.contains(row.messageID) { duplicates += 1; continue }
+            let firstPossibleDay = earliestClock.dayKey(row.timestamp)
+            let lastPossibleDay = latestClock.dayKey(row.timestamp)
+            if proxy.uncertainDays.contains(firstPossibleDay) || proxy.uncertainDays.contains(lastPossibleDay) ||
+                proxy.uncertainDays.contains(utcClock.dayKey(row.timestamp)) {
+                uncertainTokens += row.total
+                uncertainRows += 1
+                continue
+            }
+            let name = row.model + " (Non-Proxy)"
+            var bucket = archivedDays[rowDay] ?? .empty
+            var model = bucket.models[name] ?? ClaudeModelAggregate(model: name)
+            model.inputTokens += row.input
+            model.outputTokens += row.output
+            model.cacheReadTokens += row.cacheRead
+            model.cacheCreateTokens += row.cacheCreate
+            model.totalTokens += row.total
+            bucket.models[name] = model
+            bucket.totalTokens += row.total
+            bucket.usageRows += 1
+            archivedDays[rowDay] = bucket
+        }
         guard !archivedDays.isEmpty else {
-            throw ProviderError("no_usage_data", "No Claude Gateway usage recorded yet")
+            throw ProviderError("no_usage_data", "No Claude local usage recorded yet")
         }
 
         let todayKey = dayKey(now)
@@ -43,7 +74,7 @@ public struct ClaudeProvider: ProviderFetcher {
         let currentMonth = aggregateDays(archivedDays) { $0.hasPrefix(monthKey) }
         let overall = aggregateDays(archivedDays) { _ in true }
         let archiveDayCount = archivedDayCount(archivedDays, now: now, fallback: max(archivedDays.count, Self.defaultScanDays))
-        let overallRangeLabel = archivedRangeLabel(archivedDays, fallback: "All proxy history")
+        let overallRangeLabel = archivedRangeLabel(archivedDays, fallback: "All local history")
 
         var extra: [String: AnyCodable] = [:]
         extra["today.estimatedCostUsd"] = AnyCodable(roundUsd(today.estimatedCostUsd))
@@ -68,7 +99,10 @@ public struct ClaudeProvider: ProviderFetcher {
         extra["overall.estimatedCostUsd"] = AnyCodable(roundUsd(overall.estimatedCostUsd))
         extra["overall.totalTokens"] = AnyCodable(overall.totalTokens)
         extra["overall.usageRows"] = AnyCodable(overall.usageRows)
-        extra["overall.duplicateRowsRemoved"] = AnyCodable(0)
+        extra["overall.duplicateRowsRemoved"] = AnyCodable(duplicates)
+        extra["overall.uncertainTokens"] = AnyCodable(uncertainTokens)
+        extra["overall.uncertainRows"] = AnyCodable(uncertainRows)
+        extra["overall.proxyTokens"] = AnyCodable(proxy.days.values.reduce(0) { $0 + $1.totalTokens })
         extra["overall.rangeLabel"] = AnyCodable(overallRangeLabel)
         extra["overall.unpricedModels"] = AnyCodable(unpricedModels.sorted().map { AnyCodable($0) })
 
@@ -91,7 +125,7 @@ public struct ClaudeProvider: ProviderFetcher {
         extra["timeline.byModel"] = AnyCodable(modelTimelines)
 
         var usage = ProviderUsage(provider: id, label: displayName, extra: extra)
-        usage.source = SourceInfo(mode: "auto", type: "claude-proxy-usage")
+        usage.source = SourceInfo(mode: "auto", type: "claude-local-ledger")
         return usage
     }
 

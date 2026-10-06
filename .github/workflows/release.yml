@@ -193,6 +193,14 @@ jobs:
           test "$APP_LEAF" = "$AUTOUPDATE_LEAF"
           echo "Autoupdate leaf matches App leaf ($APP_LEAF)"
 
+          # 对最终 ZIP 中的 helper 执行回传兼容测试，不以跳过视为通过。
+          AIUSAGE_TEST_CLAUDE_HELPER="$HELPER_PATH" \
+            swift test --package-path QuotaBackend --filter ClaudeSubscriptionTests
+
+      - name: Run proxy archive retention regression
+        shell: bash
+        run: bash scripts/run_proxy_usage_archive_regression.sh
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6
         with:

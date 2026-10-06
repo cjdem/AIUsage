@@ -1,9 +1,8 @@
 import Foundation
 
 // MARK: - Usage Track (用量轨道)
-// Codex 用量分两轨：代理（代理归档，模型名带 " (Proxy)" 后缀）与 非代理（本地 JSONL，带 " (Non-Proxy)" 后缀），
+// Claude / Codex 用量分两轨：代理（代理归档，模型名带 " (Proxy)" 后缀）与 非代理（本地 JSONL，带 " (Non-Proxy)" 后缀），
 // 合并轨同时含两者。统计页用本类型在「合计 / 代理 / 非代理」间切换，靠模型名后缀过滤、显示时剥后缀。
-// Claude 单轨（仅代理），模型名无后缀，故只有 codex 家族需要轨道切换器。
 
 enum UsageTrack: String, CaseIterable, Identifiable {
     case combined

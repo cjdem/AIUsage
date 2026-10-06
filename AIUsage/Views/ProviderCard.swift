@@ -42,7 +42,10 @@ struct ProviderCard: View {
     }
 
     private var refreshTimestamp: Date? {
-        refreshCoordinator.accountRefreshDate(for: provider)
+        if provider.providerId == "claude-subscription" {
+            return provider.fetchedAt.flatMap { SharedFormatters.parseISO8601($0) }
+        }
+        return refreshCoordinator.accountRefreshDate(for: provider)
     }
     
     var body: some View {
@@ -83,7 +86,7 @@ struct ProviderCard: View {
                     .font(.system(size: 26, weight: .bold, design: .rounded))
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
-                if let secondary = provider.headline.secondary.nilIfBlank {
+                if provider.providerId != "claude-subscription", let secondary = provider.headline.secondary.nilIfBlank {
                     Text(secondary)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -99,6 +102,14 @@ struct ProviderCard: View {
                 )
             } else if let remaining = provider.remainingPercent {
                 QuotaIndicatorView(remainingPercent: remaining, accentColor: accentColor, resetAt: provider.nextResetAt)
+            }
+
+            if provider.providerId == "claude-subscription", let secondary = provider.headline.secondary.nilIfBlank {
+                Text(secondary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             HStack(alignment: .center, spacing: 8) {
@@ -127,6 +138,11 @@ struct ProviderCard: View {
                         foregroundStyle: .secondary,
                         style: .relativeOnly
                     )
+                }
+
+                if provider.providerId == "claude-subscription", let directory = provider.sourceFilePath {
+                    ClaudeSubscriptionAccountActions(directory: directory, needsReconnect: provider.status == .error)
+                        .fixedSize()
                 }
             }
         }
@@ -299,6 +315,10 @@ struct ProviderCard: View {
     }
 
     private var footerAccountLabel: String? {
+        // 订阅配置的 accountId 是目录摘要，不能当作身份展示；只显示官方 CLI 返回的邮箱。
+        if provider.providerId == "claude-subscription" {
+            return provider.accountLabel?.nilIfBlank
+        }
         // 右上角已有 membership badge（Business / Edu 等）时，不再在邮箱前拼 workspace，避免重复。
         let emailOnly = preferredAccountIdentityLabel(
             [
@@ -319,6 +339,7 @@ struct ProviderCard: View {
     }
 
     private var compactHeadlineValue: String? {
+        if provider.providerId == "claude-subscription", !provider.windows.isEmpty { return nil }
         guard let primary = provider.headline.primary.nilIfBlank else { return nil }
         if provider.remainingPercent != nil {
             return nil
@@ -336,6 +357,10 @@ struct ProviderCard: View {
         case "Tracking": return "追踪中"
         case "Idle":     return "空闲"
         case "Active":   return "活跃"
+        case "Snapshot": return "额度快照"
+        case "Waiting": return "等待同步"
+        case "Proxy session": return "代理会话"
+        case "Feedback disconnected": return "同步已断开"
         default: return label
         }
     }
@@ -351,6 +376,7 @@ struct ProviderCard: View {
         case "antigravity": return .cyan
         case "copilot": return .blue
         case "claude": return .purple
+        case "claude-subscription": return .orange
         case "cursor": return .green
         case "gemini": return .orange
         case "kimi": return Color(red: 0.09, green: 0.51, blue: 1.0)
@@ -410,14 +436,14 @@ struct ProviderCard: View {
 
     private var useMultiWindowLayout: Bool {
         Self.multiWindowProviderIds.contains(provider.providerId)
-            && provider.windows.count >= 2
+            && (provider.windows.count >= 2 || provider.providerId == "claude-subscription" && !provider.windows.isEmpty)
             && provider.windows.contains(where: { $0.remainingPercent != nil })
     }
 
     /// 采用多窗口进度布局的服务商。
     /// Codex / Kimi / MiniMax：卡片只展示 5 小时 + 周窗口两条（第三条如 Code Review 进详情）。
     /// Droid Individual：5 小时 / 周 / 月都是硬限制，卡片展示三条。
-    private static let multiWindowProviderIds: Set<String> = ["codex", "kimi", "minimax", "droid"]
+    private static let multiWindowProviderIds: Set<String> = ["codex", "claude-subscription", "kimi", "minimax", "droid"]
 
     private static func multiWindowVisibleLimit(for providerId: String) -> Int {
         providerId == "droid" ? 3 : 2

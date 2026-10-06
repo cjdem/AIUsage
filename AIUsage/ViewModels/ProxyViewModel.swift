@@ -602,7 +602,7 @@ class ProxyViewModel: ObservableObject {
 
         if let logs = recentLogs[id], !logs.isEmpty {
             let dayKeys = Set(logs.map { shardDayKey($0.timestamp) })
-            foldDaysIntoUsageArchive(dayKeys)
+            retainUsageBeforeRemovingLogs([id: logs])
             logsDirtyDays.formUnion(dayKeys)
         }
 

@@ -34,7 +34,10 @@ struct ProviderDetailView: View {
     }
 
     private var refreshTimestamp: Date? {
-        refreshCoordinator.accountRefreshDate(for: provider)
+        if provider.providerId == "claude-subscription" {
+            return provider.fetchedAt.flatMap { SharedFormatters.parseISO8601($0) }
+        }
+        return refreshCoordinator.accountRefreshDate(for: provider)
     }
     
     var body: some View {
@@ -44,6 +47,19 @@ struct ProviderDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     compactHero
+
+                    if provider.providerId == "claude-subscription", let directory = provider.sourceFilePath {
+                        HStack(spacing: 8) {
+                            Label((directory as NSString).abbreviatingWithTildeInPath, systemImage: "folder")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .textSelection(.enabled)
+                                .help(L("Claude Code configuration", "Claude Code 配置位置"))
+                            ClaudeSubscriptionAccountActions(directory: directory, needsReconnect: provider.status == .error)
+                        }
+                    }
 
                     if !provider.windows.isEmpty {
                         windowsSection
@@ -62,7 +78,11 @@ struct ProviderDetailView: View {
                     }
 
                     if let spotlight = provider.spotlight {
-                        spotlightSection(spotlight)
+                        if provider.providerId == "claude-subscription" {
+                            Text(spotlight).font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            spotlightSection(spotlight)
+                        }
                     }
 
                     if provider.windows.isEmpty,
@@ -226,11 +246,13 @@ struct ProviderDetailView: View {
                 .font(.title2.weight(.bold))
                 .lineLimit(2)
 
-            Text(provider.headline.secondary)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            if let secondary = provider.headline.secondary.nilIfBlank {
+                Text(secondary)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
 
-            if let supporting = provider.headline.supporting {
+            if let supporting = provider.headline.supporting?.nilIfBlank {
                 Text(supporting)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -377,7 +399,8 @@ struct ProviderDetailView: View {
     }
 
     private var detailAccountLabel: String? {
-        preferredAccountIdentityLabel(
+        if provider.providerId == "claude-subscription" { return nil }
+        return preferredAccountIdentityLabel(
             [
                 accountDisplayOverride,
                 provider.accountLabel,
@@ -397,6 +420,10 @@ struct ProviderDetailView: View {
         case "Tracking": return "追踪中"
         case "Idle":     return "空闲"
         case "Active":   return "活跃"
+        case "Snapshot": return "额度快照"
+        case "Waiting": return "等待同步"
+        case "Proxy session": return "代理会话"
+        case "Feedback disconnected": return "同步已断开"
         default: return label
         }
     }
@@ -406,6 +433,7 @@ struct ProviderDetailView: View {
         case "antigravity": return .cyan
         case "copilot": return .blue
         case "claude": return .purple
+        case "claude-subscription": return .orange
         case "cursor": return .green
         case "gemini": return .orange
         case "kimi": return Color(red: 0.09, green: 0.51, blue: 1.0)
@@ -447,6 +475,7 @@ struct ProviderDetailView: View {
     }
 
     private var copyTargetValue: String? {
+        if provider.providerId == "claude-subscription" { return provider.sourceFilePath }
         let candidates: [String?] = [
             detailAccountLabel,
             provider.accountLabel,

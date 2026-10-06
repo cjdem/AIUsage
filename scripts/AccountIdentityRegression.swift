@@ -190,6 +190,32 @@ struct AccountIdentityRegression {
                 excluding: [], allowUnseenCredentialFallback: false) == nil, "残缺结果存在多个候选时不猜测归属")
         await store.reconcileAccountRegistry(with: [incompleteLive])
         check(store.accountRegistry[0] == completeA && store.accountRegistry[1] == sameEmailB, "协调兜底不能绕过歧义检查覆盖任何成员")
+
+        // Claude 的名称不是身份；相同名称的两个目录必须分别登记。
+        var claudeLive: [ProviderData] = []
+        for suffix in ["personal", "work"] {
+            let profile = ClaudeSubscriptionProfile(configDirectory: "/tmp/claude-identity-fixture/\(suffix)", name: "同名配置")
+            let reference = AccountCredential(providerId: "claude-subscription", accountLabel: profile.name,
+                authMethod: .auto, credential: profile.configDirectory,
+                metadata: ["sourceKind": "claude-cli-profile", "accountId": profile.id])
+            var usage = ProviderUsage(provider: "claude-subscription", label: "Claude", accountId: profile.id)
+            usage.accountName = profile.name
+            usage.extra["profileDirectory"] = AnyCodable(profile.configDirectory)
+            usage.extra["snapshotState"] = AnyCodable("waiting")
+            try store.registerAuthenticatedCredential(reference, usage: usage, note: nil, providerDisplayTitle: "Claude",
+                insertImmediateProviderData: { _, id, _, usage in
+                    var summary = UsageNormalizer.normalize(provider: ClaudeSubscriptionProvider(), usage: usage)
+                    summary.id = "claude-subscription:cred:\(id)"
+                    if let value = try? JSONDecoder().decode(ProviderData.self, from: JSONEncoder().encode(summary)) { claudeLive.append(value) }
+                }, ensureProviderSelected: { _ in })
+        }
+        check(store.accountRegistry.filter { $0.providerId == "claude-subscription" }.count == 2, "Claude 同名目录不合并")
+        check(AccountCredentialStore.shared.loadCredentials(for: "claude-subscription").count == 2, "Claude 两个目录引用不替换")
+        check(Set(claudeLive.map(AccountIdentityPolicy.liveIdentityKey(for:))).count == 2, "Claude 刷新结果独立归属")
+        await store.reconcileAccountRegistry(with: claudeLive)
+        check(store.accountRegistry.filter { $0.providerId == "claude-subscription" }.count == 2, "Claude 协调后无重复或合并")
+        check(store.accountRegistry.filter { $0.providerId == "claude-subscription" }.allSatisfy { $0.sourceFilePath != nil }, "Claude 保存配置目录引用")
+        check(claudeLive.allSatisfy { $0.remainingPercent == nil && $0.membershipLabel == nil }, "Claude 待样本不显示假额度或套餐")
         print("PASS: \(assertions) account identity assertions (production save/reconcile/hide/delete, isolated storage)")
     }
 }

@@ -8,6 +8,7 @@ public enum ProviderRegistry {
     private static let all: [any ProviderFetcher] = [
         AntigravityProvider(),
         ClaudeProvider(),
+        ClaudeSubscriptionProvider(),
         CodexCostProvider(),
         CodexProvider(),
         CopilotProvider(),

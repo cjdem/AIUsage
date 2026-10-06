@@ -1,233 +1,167 @@
 import Foundation
+import CryptoKit
 
-// MARK: - Claude Call Event Source
-// 解析 Claude Code 的本地会话日志，提取工具 / MCP / Skill 调用计数。
-// 数据来源: ~/.claude/projects/**/*.jsonl（或 $CLAUDE_CONFIG_DIR/projects）。
-// 仅读 assistant 行 message.content[] 里 type==tool_use 的 name；不读 token、不读正文。
-// 0.8.0 曾删除 Claude 的 JSONL 用量扫描，这里是「只为调用分析」的独立轻量扫描。
+struct ClaudeCallRecord: Codable {
+    let id: String
+    let kind: CallKind
+    let name: String
+    let server: String?
+    var agent: String
+    var timestamp: Date
+    var success: Bool?
+}
 
+struct ClaudeInvocationRecord: Codable {
+    let id: String
+    var agent: String
+    var timestamp: Date
+}
+
+/// 调用、结果与会话均保留稳定身份，日期在展示时计算。
 struct ClaudeCallEventSource {
     let homeDirectory: String
     let timeZone: TimeZone
     let environment: [String: String]
 
-    /// Claude 单行可能含 thinking 长文，给足缓冲以保证 tool_use 行被完整解析。
-    private static let maxLineBytes = 4 * 1024 * 1024
-    private static let toolUseNeedle = Data("\"tool_use\"".utf8)
-    private static let toolResultNeedle = Data("\"tool_result\"".utf8)
-    private static let webSearchTools: Set<String> = ["WebSearch", "WebFetch"]
-
-    /// 已解析待配对的 tool_use（等其 tool_result 确定成功/失败后再计入累加器）。
-    private struct PendingCall {
-        let kind: CallKind
-        let name: String
-        let server: String?
-        let agent: String   // "main" / "subagent"
-        let dayKey: String
+    struct FileState {
+        var cursor: ClaudeSessionReader.Cursor?
+        var calls: [String: ClaudeCallRecord] = [:]
+        var outcomes: [String: Bool] = [:]
+        var invocation: ClaudeInvocationRecord?
+        var metadata: String?
+        var hasStableSessionID = false
     }
 
     func resolveProjectRoots() -> [String] {
-        if let env = environment["CLAUDE_CONFIG_DIR"]?.trimmingCharacters(in: .whitespacesAndNewlines), !env.isEmpty {
-            return env.split(separator: ",").map { part -> String in
-                let trimmed = part.trimmingCharacters(in: .whitespaces)
-                return (trimmed as NSString).lastPathComponent == "projects" ? trimmed : "\(trimmed)/projects"
-            }
-        }
-        return [
-            "\(homeDirectory)/.config/claude/projects",
-            "\(homeDirectory)/.claude/projects"
-        ]
+        ClaudeLogDirectoryResolver(homeDirectory: homeDirectory, environment: environment).projectRoots
     }
 
-    func collect(cutoff: Date?) -> (entries: [CallAnalyticsEntry], status: CallSourceStatus, agentInvocationsByDay: [String: [AgentInvocationCount]]) {
+    func scan(file: String, previous: FileState?) throws -> (state: FileState, changed: Bool, errorCode: String?) {
+        var state = previous ?? FileState()
         let clock = CallAnalyticsClock(timeZone: timeZone)
-        let roots = resolveProjectRoots().filter { FileManager.default.fileExists(atPath: $0) }
-        guard !roots.isEmpty else {
-            return ([], CallSourceStatus(source: .claude, available: false, eventCount: 0, filesScanned: 0, errorCode: nil), [:])
+        let fallback = (try? FileManager.default.attributesOfItem(atPath: file)[.modificationDate] as? Date) ?? Date()
+        let isSubagent = file.contains("/subagents/")
+        let metadata = isSubagent ? readSubagentType(forFile: file) : nil
+        let agent = isSubagent ? (metadata ?? "subagent") : "main"
+        var changed = previous == nil || state.metadata != metadata
+        if state.metadata != metadata {
+            for id in state.calls.keys { state.calls[id]?.agent = agent }
+            state.invocation?.agent = agent
+            state.metadata = metadata
         }
+        let scanned = try ClaudeSessionReader.scan(path: file, cursor: state.cursor) { line in
+            guard let row = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
+                  let type = row["type"] as? String, let message = row["message"] as? [String: Any] else { return }
+            let content = message["content"] as? [[String: Any]] ?? []
+            if type == "assistant" {
+                let timestamp = (row["timestamp"] as? String).flatMap(clock.date(fromISO:)) ?? fallback
+                // 子代理日志中的 sessionId 可能沿用主会话，不能据此合并不同子代理。
+                let identity = (isSubagent ? nil : row["sessionId"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                    ?? (message["id"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                    ?? file
+                if state.invocation == nil {
+                    state.hasStableSessionID = !isSubagent && !(row["sessionId"] as? String ?? "").isEmpty
+                    state.invocation = ClaudeInvocationRecord(id: Self.hash(identity), agent: agent, timestamp: timestamp)
+                    changed = true
+                } else if timestamp < state.invocation!.timestamp {
+                    state.invocation?.timestamp = timestamp
+                    changed = true
+                }
+                let callAgent = isSubagent ? agent : ((row["isSidechain"] as? Bool) == true ? "subagent" : "main")
+                for (index, item) in content.enumerated() {
+                    guard item["type"] as? String == "tool_use", let name = item["name"] as? String, !name.isEmpty else { continue }
+                    let id = (item["id"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                        ?? "anonymous-" + Self.hash("\(identity)|\(row["uuid"] ?? message["id"] ?? timestamp.description)|\(index)|\(name)")
+                    var call = makeCall(id: id, rawName: name, input: item["input"] as? [String: Any], agent: callAgent, timestamp: timestamp)
+                    call.timestamp = min(call.timestamp, state.calls[id]?.timestamp ?? timestamp)
+                    call.success = state.outcomes[id] ?? state.calls[id]?.success
+                    state.calls[id] = call
+                    changed = true
+                }
+            } else if type == "user" {
+                for item in content {
+                    guard item["type"] as? String == "tool_result", let id = item["tool_use_id"] as? String else { continue }
+                    let success = (item["is_error"] as? Bool) != true
+                    state.outcomes[id] = success
+                    state.calls[id]?.success = success
+                    changed = true
+                }
+            }
+        }
+        state.cursor = scanned.cursor
+        return (state, changed, scanned.errorCode)
+    }
 
-        let files = collectJSONLFiles(roots: roots, cutoff: cutoff)
-        var accumulator = CallEventAccumulator()
-        // 各 agent 的「被调用次数」：一份会话文件 = 一次。主会话（根文件）记 "main"，
-        // 子代理记其具体 agentType（读不到 → "subagent"）。与该 agent 是否调过工具无关。
-        // 为支持按天冻结归档（issue #32），按「会话最早事件所在日」归属该次调用——该日恒定、
-        // 跨日重扫不漂移，配合归档「过去日冻结」语义可避免同一会话被多日重复计数。
-        var invocationsByDay: [String: [String: Int]] = [:]
+    func collect(cutoff: Date?, sessionFiles: [String]? = nil) -> (entries: [CallAnalyticsEntry], status: CallSourceStatus, agentInvocationsByDay: [String: [AgentInvocationCount]]) {
+        let available = resolveProjectRoots().contains { FileManager.default.fileExists(atPath: $0) }
+        let files = sessionFiles ?? ClaudeLogDirectoryResolver(homeDirectory: homeDirectory, environment: environment).sessionFiles(cutoff: cutoff)
+        var calls: [String: ClaudeCallRecord] = [:], invocations: [String: ClaudeInvocationRecord] = [:]
+        var outcomes: [String: Bool] = [:]
+        var errorCode: String?
         for file in files {
-            // 路径含 subagents/ 的整文件视为 subagent；其具体类型取边车 agent-<id>.meta.json 的 agentType
-            // （如 Explore / Plan），拿不到则归为通用 "subagent"。常规文件再按行内 isSidechain 兜底。
-            let isSubagentFile = file.contains("/subagents/")
-            let subagentType = isSubagentFile ? readSubagentType(forFile: file) : nil
-            let agentName = isSubagentFile ? (subagentType ?? "subagent") : "main"
-            let fallbackDayKey = clock.dayKey(fileModificationDate(file) ?? Date())
-            // 同文件内按 tool_use_id 配对 tool_result（成功率）。配对发生在文件内、顺序保证 result 在 use 之后。
-            var pending: [String: PendingCall] = [:]
-            var earliestDayKey: String?
-            CallAnalyticsLineReader.forEachLine(
-                path: file,
-                needles: [Self.toolUseNeedle, Self.toolResultNeedle],
-                maxLineBytes: Self.maxLineBytes
-            ) { line in
-                parseLine(line, clock: clock, fallbackDayKey: fallbackDayKey,
-                          isSubagentFile: isSubagentFile, subagentType: subagentType,
-                          pending: &pending, earliestDayKey: &earliestDayKey, into: &accumulator)
-            }
-            // 文件结束仍未配到 tool_result 的 tool_use：只计数，成功率未知（不计入分母）。
-            for call in pending.values {
-                accumulator.add(source: .claude, kind: call.kind, name: call.name,
-                                server: call.server, dayKey: call.dayKey, agent: call.agent, success: nil)
-            }
-            let invocationDay = earliestDayKey ?? fallbackDayKey
-            invocationsByDay[invocationDay, default: [:]][agentName, default: 0] += 1
+            do {
+                let result = try scan(file: file, previous: nil)
+                if let code = result.errorCode { errorCode = code }
+                calls.merge(result.state.calls) { old, new in Self.merged(old, new) }
+                outcomes.merge(result.state.outcomes) { _, new in new }
+                if let invocation = result.state.invocation { invocations[invocation.id] = invocation }
+            } catch { errorCode = "session_unreadable" }
         }
-
-        let status = CallSourceStatus(
-            source: .claude,
-            available: true,
-            eventCount: accumulator.eventCount,
-            filesScanned: files.count,
-            errorCode: nil
-        )
-        let agentInvocationsByDay = invocationsByDay.mapValues { perAgent in
-            perAgent.map { AgentInvocationCount(source: .claude, agent: $0.key, count: $0.value) }
-        }
-        return (accumulator.entries(), status, agentInvocationsByDay)
+        for (id, success) in outcomes { calls[id]?.success = success }
+        let days = Self.buckets(calls: calls.values, invocations: invocations.values, timeZone: timeZone)
+        return (days.values.flatMap(\.entries), CallSourceStatus(source: .claude, available: available,
+            eventCount: calls.count, filesScanned: files.count, errorCode: errorCode), days.mapValues(\.agentInvocations))
     }
 
-    // MARK: - Parsing
-
-    private func parseLine(
-        _ line: Data,
-        clock: CallAnalyticsClock,
-        fallbackDayKey: String,
-        isSubagentFile: Bool,
-        subagentType: String?,
-        pending: inout [String: PendingCall],
-        earliestDayKey: inout String?,
-        into accumulator: inout CallEventAccumulator
-    ) {
-        guard let object = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
-              let type = object["type"] as? String,
-              let message = object["message"] as? [String: Any],
-              let content = message["content"] as? [[String: Any]] else {
-            return
-        }
-
-        switch type {
-        case "assistant":
-            let dayKey: String
-            if let ts = object["timestamp"] as? String, let date = clock.date(fromISO: ts) {
-                dayKey = clock.dayKey(date)
-            } else {
-                dayKey = fallbackDayKey
-            }
-            // 记录该会话出现过的最早事件日（dayKey 为 yyyy-MM-dd，可字典序比较），用于按天归属「被调用次数」。
-            if earliestDayKey == nil || dayKey < earliestDayKey! {
-                earliestDayKey = dayKey
-            }
-            // agent：子代理文件用其具体类型（拿不到→"subagent"）；常规文件按行 isSidechain 兜底；否则 "main"。
-            let agent: String
-            if isSubagentFile {
-                agent = subagentType ?? "subagent"
-            } else if (object["isSidechain"] as? Bool) == true {
-                agent = "subagent"
-            } else {
-                agent = "main"
-            }
-            for item in content {
-                guard (item["type"] as? String) == "tool_use",
-                      let rawName = item["name"] as? String, !rawName.isEmpty else {
-                    continue
-                }
-                let call = makeCall(rawName: rawName, input: item["input"] as? [String: Any], agent: agent, dayKey: dayKey)
-                if let id = (item["id"] as? String), !id.isEmpty {
-                    pending[id] = call   // 等 tool_result 再计入（带成功/失败）
-                } else {
-                    // 无 id 无法配对：只计数，成功率未知。
-                    accumulator.add(source: .claude, kind: call.kind, name: call.name,
-                                    server: call.server, dayKey: call.dayKey, agent: call.agent, success: nil)
-                }
-            }
-
-        case "user":
-            // 用户行里的 tool_result 给出对应 tool_use 的成功/失败：is_error==true→失败，false/缺省→成功。
-            for item in content {
-                guard (item["type"] as? String) == "tool_result",
-                      let id = item["tool_use_id"] as? String,
-                      let call = pending.removeValue(forKey: id) else {
-                    continue
-                }
-                let isError = (item["is_error"] as? Bool) == true
-                accumulator.add(source: .claude, kind: call.kind, name: call.name,
-                                server: call.server, dayKey: call.dayKey, agent: call.agent, success: !isError)
-            }
-
-        default:
-            return
-        }
+    static func merged(_ old: ClaudeCallRecord, _ new: ClaudeCallRecord) -> ClaudeCallRecord {
+        var result = new
+        result.timestamp = min(old.timestamp, new.timestamp)
+        result.success = new.success ?? old.success
+        if new.agent == "subagent", old.agent != "subagent" { result.agent = old.agent }
+        return result
     }
 
-    private func makeCall(rawName: String, input: [String: Any]?, agent: String, dayKey: String) -> PendingCall {
+    static func buckets<C: Sequence, I: Sequence>(calls: C, invocations: I, timeZone: TimeZone) -> [String: CallAnalyticsDayBucket]
+        where C.Element == ClaudeCallRecord, I.Element == ClaudeInvocationRecord {
+        let clock = CallAnalyticsClock(timeZone: timeZone)
+        var accumulator = CallEventAccumulator()
+        for call in calls {
+            accumulator.add(source: .claude, kind: call.kind, name: call.name, server: call.server,
+                dayKey: clock.dayKey(call.timestamp), agent: call.agent, success: call.success)
+        }
+        var days: [String: CallAnalyticsDayBucket] = [:]
+        for entry in accumulator.entries() { days[entry.dayKey, default: .empty].entries.append(entry) }
+        var agents: [String: [String: Int]] = [:]
+        for invocation in invocations { agents[clock.dayKey(invocation.timestamp), default: [:]][invocation.agent, default: 0] += 1 }
+        for (day, counts) in agents {
+            days[day, default: .empty].agentInvocations = counts.map { AgentInvocationCount(source: .claude, agent: $0.key, count: $0.value) }
+        }
+        return days
+    }
+
+    private func makeCall(id: String, rawName: String, input: [String: Any]?, agent: String, timestamp: Date) -> ClaudeCallRecord {
         if let mcp = CallAnalyticsNaming.parseClaudeMCP(rawName) {
-            return PendingCall(
-                kind: .mcp,
-                name: CallAnalyticsNaming.mcpDisplayName(server: mcp.server, tool: mcp.tool),
-                server: mcp.server,
-                agent: agent,
-                dayKey: dayKey
-            )
+            return .init(id: id, kind: .mcp, name: CallAnalyticsNaming.mcpDisplayName(server: mcp.server, tool: mcp.tool), server: mcp.server, agent: agent, timestamp: timestamp)
         }
-
         if rawName == "Skill" {
-            let trimmed = (input?["skill"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let skillName = trimmed.isEmpty ? "(unknown)" : trimmed
-            return PendingCall(kind: .skill, name: skillName, server: nil, agent: agent, dayKey: dayKey)
+            let name = (input?["skill"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return .init(id: id, kind: .skill, name: name.isEmpty ? "(unknown)" : name, server: nil, agent: agent, timestamp: timestamp)
         }
-
-        let kind: CallKind = Self.webSearchTools.contains(rawName) ? .webSearch : .builtin
-        return PendingCall(kind: kind, name: rawName, server: nil, agent: agent, dayKey: dayKey)
+        return .init(id: id, kind: ["WebSearch", "WebFetch"].contains(rawName) ? .webSearch : .builtin,
+                     name: rawName, server: nil, agent: agent, timestamp: timestamp)
     }
 
-    /// 读取子代理边车 `agent-<id>.meta.json` 的 `agentType`（如 Explore / Plan）。拿不到返回 nil。
     private func readSubagentType(forFile file: String) -> String? {
-        guard file.hasSuffix(".jsonl") else { return nil }
-        let metaPath = String(file.dropLast(".jsonl".count)) + ".meta.json"
-        guard let data = FileManager.default.contents(atPath: metaPath),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let type = (object["agentType"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !type.isEmpty else {
-            return nil
-        }
+        let path = String(file.dropLast(".jsonl".count)) + ".meta.json"
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+              ((attrs[.size] as? NSNumber)?.intValue ?? Int.max) <= 64 * 1024,
+              let data = FileManager.default.contents(atPath: path),
+              let row = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let type = (row["agentType"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !type.isEmpty else { return nil }
         return type
     }
 
-    // MARK: - File discovery
-
-    private func collectJSONLFiles(roots: [String], cutoff: Date?) -> [String] {
-        var files: [String] = []
-        var seen = Set<String>()
-        for root in roots {
-            let rootURL = URL(fileURLWithPath: root, isDirectory: true)
-            guard let enumerator = FileManager.default.enumerator(
-                at: rootURL,
-                includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey],
-                options: [.skipsHiddenFiles, .skipsPackageDescendants]
-            ) else { continue }
-
-            for case let item as URL in enumerator {
-                guard item.pathExtension.lowercased() == "jsonl" else { continue }
-                let values = try? item.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey])
-                if values?.isRegularFile == false { continue }
-                if let cutoff, let modified = values?.contentModificationDate, modified < cutoff { continue }
-                guard seen.insert(item.path).inserted else { continue }
-                files.append(item.path)
-            }
-        }
-        return files
-    }
-
-    private func fileModificationDate(_ path: String) -> Date? {
-        let values = try? URL(fileURLWithPath: path).resourceValues(forKeys: [.contentModificationDateKey])
-        return values?.contentModificationDate
+    private static func hash(_ value: String) -> String {
+        SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 }

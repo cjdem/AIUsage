@@ -151,6 +151,7 @@ extension ProxyViewModel {
                         sessionId: log.sessionId,
                         conversationId: log.conversationId,
                         upstreamRequestId: log.upstreamRequestId,
+                        responseMessageId: log.responseMessageId,
                         clientSurface: log.clientSurface,
                         isGlobalProxy: log.isGlobalProxy
                     ))
@@ -256,6 +257,8 @@ extension ProxyViewModel {
         let cutoffKey = shardDayKey(cutoff)
 
         var pruned = false
+        let expired = recentLogs.mapValues { $0.filter { $0.timestamp <= cutoff } }.filter { !$0.value.isEmpty }
+        retainUsageBeforeRemovingLogs(expired)
         for (configId, logs) in recentLogs {
             let filtered = logs.filter { $0.timestamp > cutoff }
             if filtered.count != logs.count {
@@ -289,7 +292,7 @@ extension ProxyViewModel {
     func clearLogs(for configId: String) {
         guard let logs = recentLogs[configId], !logs.isEmpty else { return }
         let dayKeys = Set(logs.map { shardDayKey($0.timestamp) })
-        foldDaysIntoUsageArchive(dayKeys)
+        retainUsageBeforeRemovingLogs([configId: logs])
         logsDirtyDays.formUnion(dayKeys)
         recentLogs[configId] = []
         saveLogs()
@@ -297,7 +300,7 @@ extension ProxyViewModel {
     }
 
     func clearAllLogs() {
-        foldAllLoadedDaysIntoUsageArchive()
+        retainUsageBeforeRemovingLogs(recentLogs)
         recentLogs.removeAll()
         logsDirtyDays.removeAll()
 

@@ -836,6 +836,8 @@ struct ProxyRequestLog: Codable, Identifiable {
     let conversationId: String?
     /// 上游返回的请求标识，仅用于排障与将来更细粒度关联。
     let upstreamRequestId: String?
+    /// 客户端收到的 Claude message.id，用于与本地 JSONL 精确去重。
+    let responseMessageId: String?
     /// 发起请求的 Claude 产品面。后端根据专用 header / 监听入口识别，旧日志为 nil。
     /// 原始值与 QuotaBackend.ClaudeClientSurface 保持一致：
     /// `claude_code` / `claude_desktop` / `claude_science` / `unknown`。
@@ -872,6 +874,7 @@ struct ProxyRequestLog: Codable, Identifiable {
         sessionId: String? = nil,
         conversationId: String? = nil,
         upstreamRequestId: String? = nil,
+        responseMessageId: String? = nil,
         clientSurface: String? = nil,
         isGlobalProxy: Bool = false
     ) {
@@ -897,6 +900,7 @@ struct ProxyRequestLog: Codable, Identifiable {
         self.sessionId = sessionId
         self.conversationId = conversationId
         self.upstreamRequestId = upstreamRequestId
+        self.responseMessageId = responseMessageId
         self.clientSurface = clientSurface
         self.isGlobalProxy = isGlobalProxy
     }
@@ -925,6 +929,7 @@ struct ProxyRequestLog: Codable, Identifiable {
         case sessionId
         case conversationId
         case upstreamRequestId
+        case responseMessageId
         case clientSurface
         case isGlobalProxy
     }
@@ -963,6 +968,7 @@ struct ProxyRequestLog: Codable, Identifiable {
         sessionId = try c.decodeIfPresent(String.self, forKey: .sessionId)
         conversationId = try c.decodeIfPresent(String.self, forKey: .conversationId)
         upstreamRequestId = try c.decodeIfPresent(String.self, forKey: .upstreamRequestId)
+        responseMessageId = try c.decodeIfPresent(String.self, forKey: .responseMessageId)
         clientSurface = try c.decodeIfPresent(String.self, forKey: .clientSurface)
         isGlobalProxy = try c.decodeIfPresent(Bool.self, forKey: .isGlobalProxy) ?? false
     }
@@ -992,6 +998,7 @@ struct ProxyRequestLog: Codable, Identifiable {
         try c.encodeIfPresent(sessionId, forKey: .sessionId)
         try c.encodeIfPresent(conversationId, forKey: .conversationId)
         try c.encodeIfPresent(upstreamRequestId, forKey: .upstreamRequestId)
+        try c.encodeIfPresent(responseMessageId, forKey: .responseMessageId)
         try c.encodeIfPresent(clientSurface, forKey: .clientSurface)
         if isGlobalProxy { try c.encode(isGlobalProxy, forKey: .isGlobalProxy) }
     }

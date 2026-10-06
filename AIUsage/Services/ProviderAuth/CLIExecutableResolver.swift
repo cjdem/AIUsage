@@ -1,6 +1,6 @@
 import Foundation
 
-func aiusageDefaultCLIPath() -> String {
+nonisolated func aiusageDefaultCLIPath() -> String {
     let home = FileManager.default.homeDirectoryForCurrentUser.path
     var segments = [
         "/opt/homebrew/bin",
@@ -22,7 +22,7 @@ func aiusageDefaultCLIPath() -> String {
     return segments.filter { seen.insert($0).inserted }.joined(separator: ":")
 }
 
-func aiusageResolvedExecutable(named executable: String) -> String? {
+nonisolated func aiusageResolvedExecutable(named executable: String) -> String? {
     if let path = aiusageRunLoginShellWhich(executable) { return path }
     if let path = aiusageRunWhich(executable) { return path }
 
@@ -53,7 +53,7 @@ func aiusageResolvedExecutable(named executable: String) -> String? {
 
 // MARK: - Internal
 
-private func aiusageNvmNodeBinPaths(home: String) -> [String] {
+nonisolated private func aiusageNvmNodeBinPaths(home: String) -> [String] {
     let nvmDir = "\(home)/.nvm/versions/node"
     guard let entries = try? FileManager.default.contentsOfDirectory(atPath: nvmDir) else { return [] }
     return entries
@@ -63,7 +63,7 @@ private func aiusageNvmNodeBinPaths(home: String) -> [String] {
 }
 
 /// Runs `which` using the app's current environment.
-private func aiusageRunWhich(_ name: String) -> String? {
+nonisolated private func aiusageRunWhich(_ name: String) -> String? {
     let whichPath = "/usr/bin/which"
     guard FileManager.default.isExecutableFile(atPath: whichPath) else { return nil }
 
@@ -91,7 +91,7 @@ private func aiusageRunWhich(_ name: String) -> String? {
 
 /// Spawns a login shell to inherit .zshrc / .bashrc PATH, then runs `which`.
 /// macOS GUI apps don't inherit terminal PATH, so this is the reliable fallback.
-private func aiusageRunLoginShellWhich(_ name: String) -> String? {
+nonisolated private func aiusageRunLoginShellWhich(_ name: String) -> String? {
     let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
     guard FileManager.default.isExecutableFile(atPath: shell) else { return nil }
 
