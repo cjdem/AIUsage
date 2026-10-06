@@ -22,6 +22,7 @@ enum MenuBarColors {
         case "antigravity": return .cyan
         case "copilot": return .blue
         case "claude": return .purple
+        case "claude-subscription": return .orange
         case "cursor": return .green
         case "gemini": return .orange
         case "kimi": return Color(red: 0.09, green: 0.51, blue: 1.0)

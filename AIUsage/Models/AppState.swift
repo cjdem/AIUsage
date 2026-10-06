@@ -389,6 +389,7 @@ class AppState: ObservableObject {
     }
 
     func deleteAccount(_ entry: ProviderAccountEntry) {
+        ClaudeSubscriptionManager.shared.releaseDeletedAccounts([entry])
         accountStore.deleteAccount(entry) { [weak self] in
             self?.refreshCoordinator.removeLiveProviders(matching: entry)
             self?.refreshCoordinator.reapplyVisibleSortedProviders()
@@ -408,6 +409,7 @@ class AppState: ObservableObject {
     }
 
     func deleteAccounts(_ entries: [ProviderAccountEntry]) {
+        ClaudeSubscriptionManager.shared.releaseDeletedAccounts(entries)
         accountStore.deleteAccounts(entries) { [weak self] in
             self?.refreshCoordinator.removeLiveProviders(matching: entries)
             self?.refreshCoordinator.reapplyVisibleSortedProviders()

@@ -9,8 +9,8 @@ struct ProviderIconView: View {
         self.size = size
     }
 
-    // Map provider aliases to the matching brand asset.
-    private var assetName: String {
+    /// 服务商别名 → 品牌图片。主界面与菜单栏共用，新增服务商 ID 只需在这里登记。
+    static func assetName(for providerId: String) -> String {
         switch providerId {
         case "codex", "codex-cost": return "codex"
         case "anthropic", "claude-subscription": return "claude"
@@ -19,6 +19,8 @@ struct ProviderIconView: View {
         default: return providerId
         }
     }
+
+    private var assetName: String { Self.assetName(for: providerId) }
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -84,7 +86,7 @@ struct ProviderIconView: View {
         switch providerId {
         case "antigravity": return "atom"
         case "copilot": return "chevron.left.forwardslash.chevron.right"
-        case "claude":  return "sparkles"
+        case "claude", "claude-subscription": return "sparkles"
         case "claude-science": return "atom"
         case "cursor":  return "cursorarrow.rays"
         case "gemini":  return "star.fill"
@@ -108,6 +110,7 @@ struct ProviderIconView: View {
         case "antigravity": return .cyan
         case "copilot": return .blue
         case "claude":  return .purple
+        case "claude-subscription": return .orange
         case "claude-science": return .purple
         case "cursor":  return .green
         case "gemini":  return .orange

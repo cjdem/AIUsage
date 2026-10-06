@@ -148,6 +148,17 @@ final class ClaudeSubscriptionManager: ObservableObject {
         ProviderRefreshCoordinator.shared.refreshProvider(Self.providerId)
     }
 
+    /// 删除账号后卡片与「停止同步」入口都不存在了，必须同时恢复原状态栏，否则回传命令会永久留在 Claude Code 里。
+    /// 隐藏账号可恢复，保持同步不变。用户连接后自行改过状态栏时不覆盖，删除照常进行。
+    func releaseDeletedAccounts(_ entries: [ProviderAccountEntry]) {
+        for entry in entries where entry.providerId == Self.providerId {
+            guard let directory = entry.liveProvider?.sourceFilePath ?? entry.storedAccount?.sourceFilePath,
+                  let profile = profile(for: directory) else { continue }
+            _ = try? ClaudeSubscriptionConnection(store: store).uninstall(profileID: profile.id)
+            stopWatching(profile.id)
+        }
+    }
+
     /// 撤销 AIUsage 为「添加其他账号」新建的独立目录（重复账号、取消或失败时），不碰默认配置和已连接账号。
     func discardAccountDirectory(_ directory: String, executable: String) async {
         guard !isDefault(directory), directory.contains("/.claude-aiusage/accounts/"),

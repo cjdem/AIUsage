@@ -70,7 +70,7 @@ enum AgentVisibility {
     /// Catalog / live provider id → owning agent. Cursor 等订阅源没有对应侧边栏 agent。
     static func agent(forProviderId id: String) -> AgentKind? {
         switch id {
-        case "claude": return .claude
+        case "claude", "claude-subscription": return .claude
         case "codex", "codex-cost": return .codex
         case "opencode": return .opencode
         default: return nil

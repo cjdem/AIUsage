@@ -222,12 +222,7 @@ struct StatusBarProviderIcon: View {
     let providerId: String
     let size: CGFloat
 
-    private var assetName: String {
-        switch providerId {
-        case "codex": return "codex"
-        default: return providerId
-        }
-    }
+    private var assetName: String { ProviderIconView.assetName(for: providerId) }
 
     var body: some View {
         Group {

@@ -14,8 +14,9 @@ extension UsageNormalizer {
         base.sourceFilePath = usage.extra["profileDirectory"]?.value as? String
         base.fetchedAt = usage.fetchedAt.isEmpty ? nil : usage.fetchedAt
         base.windows = windows
-        // 旧快照仍可展示，但不触发新的低额度/恢复通知。
-        base.remainingPercent = state == "snapshot" ? remaining : nil
+        // 未过重置时间的快照仍然有效：只是近期没有 Code 消息确认。菜单栏与排序依赖这个值，
+        // 清空会让订阅在用户停用 Code 几分钟后从菜单栏消失。已重置的窗口不在 windows 里。
+        base.remainingPercent = remaining
         base.nextResetAt = windows.compactMap(\.resetAt).sorted().first
         base.nextResetLabel = formatShortDateTime(base.nextResetAt)
 
@@ -35,7 +36,7 @@ extension UsageNormalizer {
             (primary, secondary) = ("Limits reset", "Updates after your next Claude Code message.")
         case "stale":
             // 卡片底部已有相对时间；不常驻提示文字。
-            (base.status, base.statusLabel) = ("healthy", "Snapshot")
+            (base.status, base.statusLabel) = resolveStatus(remaining)
             (primary, secondary) = ("Last synced", "")
         default:
             (base.status, base.statusLabel) = resolveStatus(remaining)

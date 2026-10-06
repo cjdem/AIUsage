@@ -446,7 +446,7 @@ struct ProviderPickerView: View {
         switch item.id {
         case "antigravity": return .cyan
         case "copilot": return .blue
-        case "claude": return .orange
+        case "claude", "claude-subscription": return .orange
         case "cursor": return .green
         case "gemini": return .teal
         case "kimi": return Color(red: 0.09, green: 0.51, blue: 1.0)
@@ -568,7 +568,7 @@ private struct SourceSelectionCard: View {
         switch item.id {
         case "antigravity": return .cyan
         case "copilot": return .blue
-        case "claude": return .orange
+        case "claude", "claude-subscription": return .orange
         case "cursor": return .green
         case "gemini": return .teal
         case "kimi": return Color(red: 0.09, green: 0.51, blue: 1.0)

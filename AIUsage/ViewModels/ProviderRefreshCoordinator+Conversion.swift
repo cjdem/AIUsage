@@ -317,6 +317,8 @@ extension ProviderRefreshCoordinator {
             "Proxy + non-proxy ledger": "代理 + 非代理账本",
             "Non-proxy tokens • Cost not tracked": "非代理 Token · 不统计费用",
             "Claude Subscription": "Claude 订阅",
+            "Claude Subscription needs attention": "Claude 订阅需要关注",
+            "Claude Subscription is getting tight": "Claude 订阅余额趋紧",
             "Reconnect needed": "需要重新连接",
             "Quota sync was removed from Claude Code settings.": "Claude Code 设置中的额度同步已被移除。",
             "No subscription data": "暂无订阅额度",

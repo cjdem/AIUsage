@@ -91,7 +91,7 @@ final class ClaudeSubscriptionTests: XCTestCase {
         XCTAssertThrowsError(try ClaudeSubscriptionStatusLine.snapshot(input: Data("{}".utf8), profile: profile))
     }
 
-    func testWaitingStaleAndResetHaveNoFakeRemainingOrAlert() async throws {
+    func testWaitingAndResetHaveNoFakeRemainingButStaleKeepsQuota() async throws {
         let (root, store, path) = try fixture()
         defer { try? FileManager.default.removeItem(at: root) }
         let profile = try ClaudeSubscriptionConnection(store: store).install(directory: path, name: "Personal", helperPath: "/tmp/helper")
@@ -102,10 +102,12 @@ final class ClaudeSubscriptionTests: XCTestCase {
         XCTAssertNil(UsageNormalizer.normalize(provider: provider, usage: waiting).remainingPercent)
         let payload = try input(used: 98)
         try store.saveSnapshot(XCTUnwrap(ClaudeSubscriptionStatusLine.snapshot(input: payload, profile: profile, now: Date().addingTimeInterval(-600))))
+        // 未到重置时间的旧快照仍是有效额度：菜单栏依赖 remainingPercent，不能因几分钟没用 Code 而消失。
         let stale = UsageNormalizer.normalize(provider: provider, usage: try await provider.fetchUsage(with: credential))
-        XCTAssertNil(stale.remainingPercent)
+        XCTAssertEqual(try XCTUnwrap(stale.remainingPercent), 2, accuracy: 0.001)
         XCTAssertEqual(stale.windows.count, 2)
-        XCTAssertEqual(stale.status, "healthy")
+        XCTAssertEqual(stale.status, "critical")
+        XCTAssertEqual(stale.headline.primary, "Last synced")
         XCTAssertNil(stale.costSummary)
         XCTAssertNil(stale.membershipLabel)
         try store.saveSnapshot(XCTUnwrap(ClaudeSubscriptionStatusLine.snapshot(input: input(used: 100, reset: Date().addingTimeInterval(-20), weekly: false), profile: profile)))
